@@ -409,13 +409,14 @@ class TTSProvider(models.Model):
     ]
     
     name = models.CharField(max_length=100, help_text="Friendly name")
-    provider_type = models.CharField(max_length=20, choices=PROVIDER_TYPES, default='personaplex')
+    provider_type = models.CharField(max_length=20, choices=PROVIDER_TYPES, default='edge-tts')
     
     # Connection settings
     server_url = models.CharField(
         max_length=255,
-        default="wss://localhost:8443",
-        help_text="Server address (wss://localhost:8443 for PersonaPlex, localhost:50051 for Riva)"
+        default="",
+        blank=True,
+        help_text="Server address (e.g., localhost:50051 for Riva, wss://localhost:8443 for PersonaPlex)"
     )
     api_key = models.CharField(
         max_length=255, 
@@ -431,7 +432,7 @@ class TTSProvider(models.Model):
     )
     
     # Audio settings
-    sample_rate = models.IntegerField(default=24000, help_text="Audio sample rate in Hz (24000 for PersonaPlex)")
+    sample_rate = models.IntegerField(default=24000, help_text="Audio sample rate in Hz")
     output_format = models.CharField(max_length=10, default='wav', help_text="Output format (wav, mp3)")
     
     is_active = models.BooleanField(default=True)
@@ -685,6 +686,7 @@ class AudioAsset(models.Model):
         ('legal', 'Legal Disclaimer'),
         ('transition', 'Transition Sound'),
         ('effect', 'Sound Effect'),
+        ('stinger', 'Annotation Stinger'),
     ]
     
     name = models.CharField(max_length=100, help_text="Asset name")

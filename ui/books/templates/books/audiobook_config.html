@@ -41,7 +41,7 @@
         <!-- Main Configuration Panel -->
         <div class="lg:col-span-2 space-y-6">
             <!-- Voice Selection Form -->
-            <form method="post" action="{% url 'audiobook_build' book.id %}" class="bg-white rounded-lg shadow-lg p-6">
+            <form method="post" action="{% url 'audiobook_build' book.id %}" enctype="multipart/form-data" class="bg-white rounded-lg shadow-lg p-6">
                 {% csrf_token %}
                 
                 <h2 class="text-xl font-bold mb-4">🎤 Voice Configuration</h2>
@@ -264,32 +264,44 @@
                 
                 <hr class="my-6">
                 
-                <!-- Bumper/Outro Audio -->
+                <!-- Intro & Outro Audio -->
                 <h3 class="text-lg font-semibold mb-4">🎵 Intro & Outro Audio</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Intro Bumper</label>
-                        <select name="bumper_asset" class="w-full p-3 border rounded-lg">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Intro Music</label>
+                        <select name="bumper_asset" id="bumper_asset" class="w-full p-3 border rounded-lg">
                             <option value="">-- No intro --</option>
                             {% for asset in bumper_assets %}
                                 <option value="{{ asset.id }}">{{ asset.name }}</option>
                             {% endfor %}
                         </select>
                         <p class="text-xs text-gray-500 mt-1">Audio played at the start of the audiobook</p>
+                        <div class="mt-2">
+                            <label class="block text-xs text-gray-500 mb-1">Or upload new:</label>
+                            <input type="file" name="upload_bumper" accept="audio/*"
+                                   class="w-full text-sm text-gray-500 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                   onchange="handleInlineUpload(this, 'bumper', 'bumper_asset')">
+                        </div>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Outro</label>
-                        <select name="outro_asset" class="w-full p-3 border rounded-lg">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Outro Music</label>
+                        <select name="outro_asset" id="outro_asset" class="w-full p-3 border rounded-lg">
                             <option value="">-- No outro --</option>
                             {% for asset in outro_assets %}
                                 <option value="{{ asset.id }}">{{ asset.name }}</option>
                             {% endfor %}
                         </select>
                         <p class="text-xs text-gray-500 mt-1">Audio played at the end of the audiobook</p>
+                        <div class="mt-2">
+                            <label class="block text-xs text-gray-500 mb-1">Or upload new:</label>
+                            <input type="file" name="upload_outro" accept="audio/*"
+                                   class="w-full text-sm text-gray-500 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                                   onchange="handleInlineUpload(this, 'outro', 'outro_asset')">
+                        </div>
                     </div>
                 </div>
                 <a href="{% url 'audio_assets' %}" class="text-blue-600 hover:underline text-sm">
-                    ➕ Manage Audio Assets (upload bumpers, outros, etc.)
+                    🎵 Manage Audio Assets Library
                 </a>
                 
                 <hr class="my-6">
@@ -297,34 +309,52 @@
                 <!-- Annotation Stingers -->
                 <h3 class="text-lg font-semibold mb-4">🎶 Annotation Stingers</h3>
                 <p class="text-sm text-gray-600 mb-4">
-                    Add musical sounds before and after annotations for a professional podcast feel.
+                    Add musical cues before and after annotations for a professional podcast feel.
                 </p>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Intro Stinger</label>
-                        <select name="annotator_intro_stinger" class="w-full p-3 border rounded-lg">
+                        <select name="annotator_intro_stinger" id="annotator_intro_stinger" class="w-full p-3 border rounded-lg">
                             <option value="">-- No stinger --</option>
-                            {% for asset in transition_assets %}
+                            {% for asset in stinger_assets %}
                                 <option value="{{ asset.id }}">{{ asset.name }}</option>
+                            {% endfor %}
+                            {% for asset in transition_assets %}
+                                <option value="{{ asset.id }}">{{ asset.name }} (transition)</option>
                             {% endfor %}
                             {% for asset in effect_assets %}
-                                <option value="{{ asset.id }}">{{ asset.name }}</option>
+                                <option value="{{ asset.id }}">{{ asset.name }} (effect)</option>
                             {% endfor %}
                         </select>
-                        <p class="text-xs text-gray-500 mt-1">Sound played before annotator speaks</p>
+                        <p class="text-xs text-gray-500 mt-1">Sound played before annotation</p>
+                        <div class="mt-2">
+                            <label class="block text-xs text-gray-500 mb-1">Or upload new:</label>
+                            <input type="file" name="upload_intro_stinger" accept="audio/*"
+                                   class="w-full text-sm text-gray-500 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+                                   onchange="handleInlineUpload(this, 'stinger', 'annotator_intro_stinger')">
+                        </div>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Outro Stinger</label>
-                        <select name="annotator_outro_stinger" class="w-full p-3 border rounded-lg">
+                        <select name="annotator_outro_stinger" id="annotator_outro_stinger" class="w-full p-3 border rounded-lg">
                             <option value="">-- No stinger --</option>
-                            {% for asset in transition_assets %}
+                            {% for asset in stinger_assets %}
                                 <option value="{{ asset.id }}">{{ asset.name }}</option>
+                            {% endfor %}
+                            {% for asset in transition_assets %}
+                                <option value="{{ asset.id }}">{{ asset.name }} (transition)</option>
                             {% endfor %}
                             {% for asset in effect_assets %}
-                                <option value="{{ asset.id }}">{{ asset.name }}</option>
+                                <option value="{{ asset.id }}">{{ asset.name }} (effect)</option>
                             {% endfor %}
                         </select>
-                        <p class="text-xs text-gray-500 mt-1">Sound played after annotator finishes</p>
+                        <p class="text-xs text-gray-500 mt-1">Sound played after annotation</p>
+                        <div class="mt-2">
+                            <label class="block text-xs text-gray-500 mb-1">Or upload new:</label>
+                            <input type="file" name="upload_outro_stinger" accept="audio/*"
+                                   class="w-full text-sm text-gray-500 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+                                   onchange="handleInlineUpload(this, 'stinger', 'annotator_outro_stinger')">
+                        </div>
                     </div>
                 </div>
                 
@@ -507,16 +537,14 @@
                 {% endif %}
             </div>
             
-            <!-- PersonaPlex Info -->
-            <div class="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-lg shadow p-6 border border-purple-200">
-                <h3 class="text-lg font-semibold mb-2 text-purple-800">🚀 PersonaPlex Voice Cloning</h3>
-                <p class="text-sm text-purple-700 mb-3">
-                    Create unique character voices by uploading a 5-10 second audio sample.
-                </p>
-                <ul class="text-xs text-purple-600 space-y-1">
-                    <li>• Clone any voice from a short sample</li>
-                    <li>• Adjust pitch, speed, and tone</li>
-                    <li>• Describe persona for better performance</li>
+            <!-- Audio Tips -->
+            <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg shadow p-6 border border-blue-200">
+                <h3 class="text-lg font-semibold mb-2 text-blue-800">💡 Audio Tips</h3>
+                <ul class="text-xs text-blue-600 space-y-1">
+                    <li>• Upload WAV or MP3 files for stingers and music</li>
+                    <li>• Keep stingers short (1-3 seconds) for best results</li>
+                    <li>• Use the legal disclaimer to add a spoken notice</li>
+                    <li>• Preview voices before building to find the right fit</li>
                 </ul>
             </div>
         </div>
@@ -1001,7 +1029,7 @@ function toggleLegalDisclaimer(checked) {
 
 function insertDefaultDisclaimer() {
     const textarea = document.getElementById('legal_disclaimer_text');
-    textarea.value = `This audiobook is a Forge Publisher production. The original work is in the public domain. This audio edition, including all narration, annotations, and commentary, is copyright Forge Publisher. 
+    textarea.value = `This audiobook was produced using AI-assisted text-to-speech technology. The original work is in the public domain. This audio edition, including all narration, annotations, and commentary, is produced by the publisher.
 
 Annotations and commentary represent educational interpretations and do not constitute legal, medical, or professional advice. Views expressed are for educational and entertainment purposes only.
 
@@ -1359,6 +1387,54 @@ function showAddVoiceModal() {
     document.getElementById('add-voice-modal').classList.remove('hidden');
     // Load voices for the modal
     loadModalProviderVoices();
+}
+
+// ==========================================
+// Inline Audio Asset Upload
+// ==========================================
+async function handleInlineUpload(input, assetType, selectId) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('audio_file', file);
+    formData.append('name', file.name.replace(/\.[^/.]+$/, ''));
+    formData.append('asset_type', assetType);
+    formData.append('description', 'Uploaded from audiobook config');
+
+    // Show uploading state
+    const originalLabel = input.previousElementSibling;
+    if (originalLabel) originalLabel.textContent = 'Uploading...';
+
+    try {
+        const response = await fetch('{% url "audio_asset_create" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        });
+
+        const data = await response.json();
+        if (data.error) {
+            throw new Error(data.error);
+        }
+
+        // Add new option to the select and select it
+        const select = document.getElementById(selectId);
+        const option = document.createElement('option');
+        option.value = data.id;
+        option.textContent = data.name;
+        option.selected = true;
+        select.appendChild(option);
+
+        if (originalLabel) originalLabel.textContent = '✓ Uploaded! Selected above.';
+        input.value = '';
+    } catch (error) {
+        alert('Upload failed: ' + error.message);
+        if (originalLabel) originalLabel.textContent = 'Or upload new:';
+        console.error('Upload error:', error);
+    }
 }
 </script>
 {% endblock %}

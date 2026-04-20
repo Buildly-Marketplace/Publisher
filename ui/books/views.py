@@ -594,12 +594,13 @@ def audiobook_config(request, book_id):
 	audio_builds = AudioBuild.objects.filter(book=book).order_by('-created_at')[:5]
 	last_build = audio_builds.first() if audio_builds.exists() else None
 	
-	# Get audio assets for bumper/outro
+	# Get audio assets for bumper/outro/stingers
 	bumper_assets = AudioAsset.objects.filter(is_active=True, asset_type='bumper')
 	outro_assets = AudioAsset.objects.filter(is_active=True, asset_type='outro')
 	legal_assets = AudioAsset.objects.filter(is_active=True, asset_type='legal')
 	transition_assets = AudioAsset.objects.filter(is_active=True, asset_type='transition')
 	effect_assets = AudioAsset.objects.filter(is_active=True, asset_type='effect')
+	stinger_assets = AudioAsset.objects.filter(is_active=True, asset_type='stinger')
 	
 	# Count sections for the book
 	section_count = 0
@@ -625,7 +626,7 @@ def audiobook_config(request, book_id):
 		pass
 	
 	# Default legal disclaimer
-	default_legal_disclaimer = """This audiobook was produced using the Forge Publisher platform. The original work is in the public domain. This audio edition, including all narration, annotations, and commentary, is copyright of the publisher.
+	default_legal_disclaimer = """This audiobook was produced using AI-assisted text-to-speech technology. The original work is in the public domain. This audio edition, including all narration, annotations, and commentary, is produced by the publisher.
 
 Annotations and commentary represent educational interpretations and do not constitute legal, medical, or professional advice. Views expressed are for educational and entertainment purposes only.
 
@@ -661,6 +662,7 @@ Unauthorized reproduction or distribution of this audio is prohibited."""
 		"legal_assets": legal_assets,
 		"transition_assets": transition_assets,
 		"effect_assets": effect_assets,
+		"stinger_assets": stinger_assets,
 		"section_count": section_count,
 		"default_legal_disclaimer": default_legal_disclaimer,
 	})
