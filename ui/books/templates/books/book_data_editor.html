@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Book | Forge Publisher{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold mb-6">Edit Book: {{ book_folder }}</h1>
+<form method="post">
+    {% csrf_token %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div>
+            <h2 class="text-lg font-semibold mb-2">Manuscript</h2>
+            <textarea name="manuscript" rows="18" class="w-full font-mono text-xs p-2 border rounded bg-gray-50">{{ manuscript }}</textarea>
+        </div>
+        <div>
+            <h2 class="text-lg font-semibold mb-2">Annotations</h2>
+            <div id="quill-editor" style="height: 300px; background: #f9fafb;" class="mb-2"></div>
+            <input type="hidden" name="annotation" id="annotation-input">
+            <div class="mt-2 flex gap-2">
+                <input type="text" id="annotation-search" placeholder="Search annotations..." class="border rounded p-1 text-xs w-1/2">
+                <button type="button" class="px-2 py-1 bg-indigo-600 text-white rounded text-xs" onclick="filterAnnotations()">Filter</button>
+            </div>
+        </div>
+    </div>
+    <div class="mt-8">
+        <h2 class="text-lg font-semibold mb-2">Restore Version</h2>
+        <form method="get" class="mb-4 flex gap-2">
+            <select name="restore" class="border rounded p-1 text-xs">
+                <option value="">Select a version to restore...</option>
+                {% for fname, label in version_choices %}
+                    <option value="{{ fname }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="px-2 py-1 bg-indigo-600 text-white rounded text-xs">Restore</button>
+        </form>
+        <h2 class="text-lg font-semibold mb-2">Cover</h2>
+        {% if cover_is_image and cover_path %}
+            <img src="/static/{{ cover_path|cut:'../' }}" alt="Book Cover" class="max-w-xs rounded shadow">
+        {% elif cover_path %}
+            <div class="bg-gray-100 p-4 rounded">{{ cover_path }}</div>
+        {% else %}
+            <div class="text-gray-400">No cover found.</div>
+        {% endif %}
+    </div>
+    <div class="mt-8">
+        <h2 class="text-lg font-semibold mb-2">Live Preview</h2>
+        <div class="mb-2 flex gap-2">
+            <label>Font:
+                <select id="preview-font" class="border rounded p-1 text-xs">
+                    <option value="serif">Serif</option>
+                    <option value="sans-serif">Sans</option>
+                    <option value="monospace">Mono</option>
+                </select>
+            </label>
+            <label>Font Size:
+                <input type="number" id="preview-font-size" value="16" min="10" max="48" class="border rounded p-1 text-xs w-16"> px
+            </label>
+            <label>Background:
+                <input type="color" id="preview-bg" value="#f9fafb" class="border rounded p-1 text-xs">
+            </label>
+        </div>
+        <div id="annotation-preview" class="p-4 rounded border bg-gray-50" style="min-height:100px;"></div>
+    </div>
+    <button type="submit" class="mt-6 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Save All</button>
+</form>
+<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<script>
+const quill = new Quill('#quill-editor', { theme: 'snow' });
+quill.root.innerHTML = {{ annotation|safe|escapejs }};
+
+function updatePreview() {
+    const preview = document.getElementById('annotation-preview');
+    preview.innerHTML = quill.root.innerHTML;
+    preview.style.fontFamily = document.getElementById('preview-font').value;
+    preview.style.fontSize = document.getElementById('preview-font-size').value + 'px';
+    preview.style.background = document.getElementById('preview-bg').value;
+}
+quill.on('text-change', updatePreview);
+document.getElementById('preview-font').onchange = updatePreview;
+document.getElementById('preview-font-size').oninput = updatePreview;
+document.getElementById('preview-bg').oninput = updatePreview;
+window.onload = updatePreview;
+
+// Save annotation HTML to hidden input on submit
+const form = document.querySelector('form');
+form.onsubmit = function() {
+    document.getElementById('annotation-input').value = quill.root.innerHTML;
+};
+
+function filterAnnotations() {
+    const search = document.getElementById('annotation-search').value.toLowerCase();
+    const delta = quill.getContents();
+    const filtered = delta.ops.filter(op => op.insert && op.insert.toLowerCase && op.insert.toLowerCase().includes(search));
+    quill.setContents({ ops: filtered });
+    updatePreview();
+}
+</script>
+{% endblock %}

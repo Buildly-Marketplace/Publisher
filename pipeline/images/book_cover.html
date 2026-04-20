@@ -1,0 +1,98 @@
+
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {
+                margin: 0;
+                width: 600px;
+                height: 800px;
+                background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #0a0a0a 100%);
+                font-family: 'Arial', sans-serif;
+                color: #00ff41;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+                text-align: center;
+                position: relative;
+                overflow: hidden;
+            }
+            
+            .cover-bg {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: 
+                    radial-gradient(circle at 20% 80%, #00ff41 0%, transparent 50%),
+                    radial-gradient(circle at 80% 20%, #ff4100 0%, transparent 50%),
+                    repeating-linear-gradient(
+                        90deg,
+                        transparent,
+                        transparent 10px,
+                        rgba(0, 255, 65, 0.1) 11px,
+                        rgba(0, 255, 65, 0.1) 12px
+                    );
+                opacity: 0.3;
+            }
+            
+            .title {
+                font-size: 48px;
+                font-weight: bold;
+                text-transform: uppercase;
+                letter-spacing: 4px;
+                margin: 20px 0;
+                text-shadow: 
+                    0 0 10px #00ff41,
+                    0 0 20px #00ff41,
+                    0 0 30px #00ff41;
+                z-index: 1;
+                line-height: 1.1;
+            }
+            
+            .author {
+                font-size: 24px;
+                color: #ff4100;
+                margin: 20px 0;
+                letter-spacing: 2px;
+                text-shadow: 0 0 5px #ff4100;
+                z-index: 1;
+            }
+            
+            .publisher {
+                position: absolute;
+                bottom: 40px;
+                font-size: 16px;
+                color: #00ccff;
+                letter-spacing: 3px;
+                text-transform: uppercase;
+                font-weight: bold;
+            }
+            
+            .decorative-border {
+                position: absolute;
+                border: 3px solid #00ff41;
+                width: calc(100% - 60px);
+                height: calc(100% - 60px);
+                top: 30px;
+                left: 30px;
+                box-shadow: 
+                    inset 0 0 20px rgba(0, 255, 65, 0.3),
+                    0 0 20px rgba(0, 255, 65, 0.3);
+            }
+        </style>
+    </head>
+    <body>
+        <div class="cover-bg"></div>
+        <div class="decorative-border"></div>
+        <div class="title">Radical Therapy for Software Teams</div>
+        <div class="author">by Gregory Lind</div>
+        <div class="publisher">
+            <img src="data:image/svg+xml;base64,Cjxzdmcgd2lkdGg9IjQwMCIgaGVpZ2h0PSIxMDAiIHZpZXdCb3g9IjAgMCA0MDAgMTAwIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPgogICAgPGRlZnM+CiAgICAgICAgPGxpbmVhckdyYWRpZW50IGlkPSJ0ZXh0R3JhZCIgeDE9IjAlIiB5MT0iMCUiIHgyPSIxMDAlIiB5Mj0iMCUiPgogICAgICAgICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjY2Q4NTNmIi8+CiAgICAgICAgICAgIDxzdG9wIG9mZnNldD0iNTAlIiBzdG9wLWNvbG9yPSIjZGFhNTIwIi8+CiAgICAgICAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iI2NkODUzZiIvPgogICAgICAgIDwvbGluZWFyR3JhZGllbnQ+CiAgICA8L2RlZnM+CiAgICA8cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjEwMCIgcng9IjgiIGZpbGw9IiMxYTFhMmUiLz4KICAgIDx0ZXh0IHg9IjIwMCIgeT0iNjAiIGZvbnQtZmFtaWx5PSJHZW9yZ2lhLCBzZXJpZiIgZm9udC1zaXplPSIzMiIgZm9udC13ZWlnaHQ9ImJvbGQiCiAgICAgICAgICBmaWxsPSJ1cmwoI3RleHRHcmFkKSIgdGV4dC1hbmNob3I9Im1pZGRsZSI+CiAgICAgICAgUHVibGlzaGVyCiAgICA8L3RleHQ+CiAgICA8dGV4dCB4PSIyMDAiIHk9Ijg1IiBmb250LWZhbWlseT0iR2VvcmdpYSwgc2VyaWYiIGZvbnQtc2l6ZT0iMTQiCiAgICAgICAgICBmaWxsPSIjODg4IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj4KICAgICAgICBFbmhhbmNlZCBFZGl0aW9ucwogICAgPC90ZXh0Pgo8L3N2Zz4K" alt="Publisher" style="height: 40px; margin-right: 10px; vertical-align: middle;"/>
+            Forge Publisher
+        </div>
+    </body>
+    </html>
+    

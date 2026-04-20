@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Edit {{ filename }} | Forge Publisher{% endblock %}
+
+{% block content %}
+<h1 class="text-xl font-bold mb-4">Edit Annotation: {{ filename }}</h1>
+{% if saved %}
+    <div class="mb-4 p-2 bg-green-100 text-green-800 rounded">Saved!</div>
+{% endif %}
+<form method="post" class="mb-4">
+    {% csrf_token %}
+    <textarea name="content" rows="20" class="w-full font-mono text-xs p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-400">{{ content }}</textarea>
+    <button type="submit" class="mt-4 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Save</button>
+</form>
+<a href="{% url 'annotation_list' %}" class="mt-6 inline-block text-indigo-600 hover:underline">&larr; Back to annotations</a>
+{% endblock %}

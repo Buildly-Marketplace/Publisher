@@ -1,0 +1,173 @@
+{% extends "admin/change_list.html" %}
+{% load static %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    .ai-config-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+    .ai-config-header h2 {
+        margin: 0 0 10px 0;
+        font-size: 1.5em;
+    }
+    .ai-config-header p {
+        margin: 0;
+        opacity: 0.9;
+    }
+    .test-all-btn {
+        background: #28a745;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-right: 10px;
+    }
+    .test-all-btn:hover {
+        background: #218838;
+    }
+    .quick-setup-btn {
+        background: #007bff;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    .quick-setup-btn:hover {
+        background: #0056b3;
+    }
+    .provider-status {
+        padding: 3px 8px;
+        border-radius: 3px;
+        font-size: 12px;
+    }
+    .status-connected {
+        background: #d4edda;
+        color: #155724;
+    }
+    .status-failed {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    .status-unknown {
+        background: #e2e3e5;
+        color: #383d41;
+    }
+    .quick-test-btn {
+        background: #17a2b8;
+        color: white;
+        padding: 4px 8px;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 11px;
+    }
+    .quick-test-btn:hover {
+        background: #138496;
+    }
+    .quick-test-btn:disabled {
+        background: #6c757d;
+        cursor: not-allowed;
+    }
+    .ai-tips {
+        background: #f8f9fa;
+        border-left: 4px solid #007bff;
+        padding: 15px;
+        margin: 20px 0;
+    }
+    .ai-tips h4 {
+        margin: 0 0 10px 0;
+        color: #007bff;
+    }
+    .ai-tips ul {
+        margin: 0;
+        padding-left: 20px;
+    }
+    .ai-tips li {
+        margin-bottom: 5px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="ai-config-header">
+    <h2>🤖 AI Provider Configuration</h2>
+    <p>Configure and test your AI providers for text analysis and annotation generation.</p>
+    <div style="margin-top: 15px;">
+        <a href="{% url 'admin:books_aiprovider_test_all' %}" class="test-all-btn">🔄 Test All Connections</a>
+        <a href="{% url 'admin:books_aiprovider_add' %}" class="quick-setup-btn">➕ Add New Provider</a>
+    </div>
+</div>
+
+<div class="ai-tips">
+    <h4>💡 Quick Setup Tips</h4>
+    <ul>
+        <li><strong>Ollama Local:</strong> Use <code>http://localhost:11434</code> - Make sure Ollama is running (<a href="https://ollama.ai" target="_blank">Download Ollama</a>)</li>
+        <li><strong>Ollama Network:</strong> Use <code>http://your-server-ip:11434</code> - Ensure the server is accessible</li>
+        <li><strong>OpenAI:</strong> Use <code>https://api.openai.com/v1</code> with your API key from <a href="https://platform.openai.com/api-keys" target="_blank">OpenAI Dashboard</a></li>
+        <li><strong>Priority:</strong> Higher priority providers are tried first. Set a local Ollama as fallback with lower priority.</li>
+    </ul>
+</div>
+
+{{ block.super }}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add quick test buttons to each row if not already present
+    const rows = document.querySelectorAll('#result_list tbody tr');
+    rows.forEach(function(row) {
+        const link = row.querySelector('th a');
+        if (link) {
+            const href = link.getAttribute('href');
+            const match = href.match(/\/(\d+)\//);
+            if (match) {
+                const pk = match[1];
+                const lastTd = row.querySelector('td:last-child');
+                if (lastTd && !lastTd.querySelector('.quick-test-btn')) {
+                    const btn = document.createElement('button');
+                    btn.className = 'quick-test-btn';
+                    btn.textContent = '🔌 Test';
+                    btn.onclick = function(e) {
+                        e.preventDefault();
+                        btn.disabled = true;
+                        btn.textContent = '⏳ Testing...';
+                        
+                        fetch('/admin/books/aiprovider/' + pk + '/quick-test/')
+                            .then(r => r.json())
+                            .then(data => {
+                                if (data.success) {
+                                    btn.textContent = '✓ Connected';
+                                    btn.style.background = '#28a745';
+                                } else {
+                                    btn.textContent = '✗ Failed';
+                                    btn.style.background = '#dc3545';
+                                }
+                                setTimeout(() => {
+                                    btn.textContent = '🔌 Test';
+                                    btn.style.background = '#17a2b8';
+                                    btn.disabled = false;
+                                }, 3000);
+                            })
+                            .catch(err => {
+                                btn.textContent = '✗ Error';
+                                btn.style.background = '#dc3545';
+                                btn.disabled = false;
+                            });
+                    };
+                    lastTd.appendChild(document.createTextNode(' '));
+                    lastTd.appendChild(btn);
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

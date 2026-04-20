@@ -1,0 +1,263 @@
+{% extends 'base.html' %}
+
+{% block title %}AI Configuration - Forge Publisher{% endblock %}
+
+{% block content %}
+<div class="container mx-auto max-w-4xl">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold">🤖 AI Configuration</h1>
+        <a href="{% url 'dashboard' %}" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
+            ← Back to Dashboard
+        </a>
+    </div>
+    
+    <!-- Quick Status -->
+    <div class="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-lg shadow-lg p-6 mb-6 text-white">
+        <h2 class="text-xl font-semibold mb-3">Connection Status</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="bg-white/10 rounded-lg p-4">
+                <div class="text-3xl font-bold">{{ providers|length }}</div>
+                <div class="text-sm opacity-80">Configured Providers</div>
+            </div>
+            <div class="bg-white/10 rounded-lg p-4">
+                <div class="text-3xl font-bold text-green-300">{{ connected_count }}</div>
+                <div class="text-sm opacity-80">Connected</div>
+            </div>
+            <div class="bg-white/10 rounded-lg p-4">
+                <div class="text-3xl font-bold {% if primary_provider %}text-yellow-300{% else %}text-gray-300{% endif %}">
+                    {% if primary_provider %}{{ primary_provider.name|truncatechars:15 }}{% else %}None{% endif %}
+                </div>
+                <div class="text-sm opacity-80">Primary Provider</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Test All Button -->
+    <div class="mb-6">
+        <form method="post" action="{% url 'ai_test_all' %}" class="inline">
+            {% csrf_token %}
+            <button type="submit" class="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold">
+                🔄 Test All Connections
+            </button>
+        </form>
+    </div>
+    
+    <!-- Provider List -->
+    <div class="space-y-4 mb-8">
+        {% for provider in providers %}
+        <div class="bg-white rounded-lg shadow-lg p-6 border-l-4 {% if provider.last_test_success %}border-green-500{% elif provider.last_test_success == False %}border-red-500{% else %}border-gray-300{% endif %}">
+            <div class="flex justify-between items-start">
+                <div class="flex-1">
+                    <div class="flex items-center gap-3 mb-2">
+                        <h3 class="text-xl font-semibold">{{ provider.name }}</h3>
+                        {% if provider.is_primary %}
+                        <span class="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs rounded-full font-semibold">PRIMARY</span>
+                        {% endif %}
+                        {% if not provider.is_active %}
+                        <span class="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">DISABLED</span>
+                        {% endif %}
+                    </div>
+                    <p class="text-gray-600 text-sm mb-2">
+                        <span class="font-medium">{{ provider.get_provider_type_display }}</span> • 
+                        <code class="bg-gray-100 px-2 py-0.5 rounded">{{ provider.api_url }}</code>
+                    </p>
+                    <p class="text-gray-500 text-sm">
+                        Model: <code class="bg-gray-100 px-2 py-0.5 rounded">{{ provider.default_model }}</code>
+                        {% if provider.priority %} • Priority: {{ provider.priority }}{% endif %}
+                    </p>
+                    
+                    <!-- Status Message -->
+                    {% if provider.last_test_message %}
+                    <div class="mt-3 p-3 rounded {% if provider.last_test_success %}bg-green-50 text-green-800{% else %}bg-red-50 text-red-800{% endif %}">
+                        <span class="text-sm">{{ provider.last_test_message }}</span>
+                        {% if provider.last_tested %}
+                        <span class="text-xs opacity-60 ml-2">Tested: {{ provider.last_tested|timesince }} ago</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Available Models -->
+                    {% if provider.get_available_models_list %}
+                    <div class="mt-3">
+                        <span class="text-xs text-gray-500">Available models:</span>
+                        <div class="flex flex-wrap gap-1 mt-1">
+                            {% for model in provider.get_available_models_list|slice:":8" %}
+                            <span class="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded">{{ model }}</span>
+                            {% endfor %}
+                            {% if provider.get_available_models_list|length > 8 %}
+                            <span class="px-2 py-0.5 text-gray-500 text-xs">+{{ provider.get_available_models_list|length|add:"-8" }} more</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="flex flex-col gap-2 ml-4">
+                    <form method="post" action="{% url 'ai_test_provider' provider.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm w-full">
+                            🔌 Test
+                        </button>
+                    </form>
+                    <a href="{% url 'ai_edit_provider' provider.id %}" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600 text-sm text-center">
+                        ✏️ Edit
+                    </a>
+                    {% if not provider.is_primary %}
+                    <form method="post" action="{% url 'ai_set_primary' provider.id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 text-sm w-full">
+                            ⭐ Set Primary
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+            <p class="text-lg mb-2">No AI providers configured</p>
+            <p class="text-gray-600 mb-4">Add a provider to enable AI-powered annotations</p>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Add New Provider -->
+    <div class="bg-white rounded-lg shadow-lg p-6">
+        <h2 class="text-xl font-semibold mb-4">➕ Add New Provider</h2>
+        
+        <form method="post" action="{% url 'ai_add_provider' %}">
+            {% csrf_token %}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                    <input type="text" name="name" required 
+                           class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                           placeholder="e.g., Local Ollama, OpenAI Production">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Provider Type</label>
+                    <select name="provider_type" 
+                            class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                            onchange="updateDefaults(this.value)">
+                        <option value="ollama">Ollama (Local/Network)</option>
+                        <option value="openai">OpenAI API</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">API URL</label>
+                    <input type="url" name="api_url" id="api_url" required
+                           class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                           value="http://localhost:11434">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Default Model</label>
+                    <input type="text" name="default_model" id="default_model" required
+                           class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                           value="llama3.2:1b">
+                </div>
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">API Key <span class="text-gray-400">(required for OpenAI)</span></label>
+                <input type="password" name="api_key" id="api_key"
+                       class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                       placeholder="sk-...">
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                    <input type="number" name="priority" value="0"
+                           class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500">
+                    <p class="text-xs text-gray-500 mt-1">Higher = tried first</p>
+                </div>
+                <div class="flex items-center gap-4 pt-6">
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" name="is_active" checked class="rounded">
+                        <span class="text-sm">Active</span>
+                    </label>
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" name="is_primary" class="rounded">
+                        <span class="text-sm">Set as Primary</span>
+                    </label>
+                </div>
+            </div>
+            
+            <button type="submit" class="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-semibold">
+                ➕ Add Provider
+            </button>
+        </form>
+    </div>
+    
+    <!-- Quick Setup Templates -->
+    <div class="mt-6 bg-gray-50 rounded-lg p-6">
+        <h3 class="font-semibold mb-3">💡 Quick Setup Templates</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <button onclick="quickSetup('ollama-local')" 
+                    class="p-4 bg-white rounded-lg border-2 border-gray-200 hover:border-purple-500 text-left transition">
+                <div class="font-medium">🖥️ Ollama Local</div>
+                <div class="text-sm text-gray-500">localhost:11434</div>
+            </button>
+            <button onclick="quickSetup('ollama-network')" 
+                    class="p-4 bg-white rounded-lg border-2 border-gray-200 hover:border-purple-500 text-left transition">
+                <div class="font-medium">🌐 Ollama Network</div>
+                <div class="text-sm text-gray-500">Custom server address</div>
+            </button>
+            <button onclick="quickSetup('openai')" 
+                    class="p-4 bg-white rounded-lg border-2 border-gray-200 hover:border-purple-500 text-left transition">
+                <div class="font-medium">🔑 OpenAI API</div>
+                <div class="text-sm text-gray-500">api.openai.com</div>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function updateDefaults(providerType) {
+    const apiUrl = document.getElementById('api_url');
+    const defaultModel = document.getElementById('default_model');
+    const apiKey = document.getElementById('api_key');
+    
+    if (providerType === 'ollama') {
+        apiUrl.value = 'http://localhost:11434';
+        defaultModel.value = 'llama3.2:1b';
+        apiKey.placeholder = 'Not required for Ollama';
+    } else if (providerType === 'openai') {
+        apiUrl.value = 'https://api.openai.com/v1';
+        defaultModel.value = 'gpt-4o-mini';
+        apiKey.placeholder = 'sk-... (required)';
+    }
+}
+
+function quickSetup(template) {
+    const nameField = document.querySelector('input[name="name"]');
+    const typeField = document.querySelector('select[name="provider_type"]');
+    const apiUrl = document.getElementById('api_url');
+    const defaultModel = document.getElementById('default_model');
+    
+    if (template === 'ollama-local') {
+        nameField.value = 'Local Ollama';
+        typeField.value = 'ollama';
+        apiUrl.value = 'http://localhost:11434';
+        defaultModel.value = 'llama3.2:1b';
+    } else if (template === 'ollama-network') {
+        nameField.value = 'Network Ollama';
+        typeField.value = 'ollama';
+        apiUrl.value = 'http://';
+        defaultModel.value = 'llama3.2:1b';
+        apiUrl.focus();
+    } else if (template === 'openai') {
+        nameField.value = 'OpenAI';
+        typeField.value = 'openai';
+        apiUrl.value = 'https://api.openai.com/v1';
+        defaultModel.value = 'gpt-4o-mini';
+        document.getElementById('api_key').focus();
+    }
+    
+    updateDefaults(typeField.value);
+}
+</script>
+{% endblock %}

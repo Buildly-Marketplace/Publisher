@@ -1,0 +1,239 @@
+{% extends 'base.html' %}
+
+{% block title %}Audio Assets - Forge Publisher{% endblock %}
+
+{% block content %}
+<div class="container mx-auto">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <a href="{% url 'book_dashboard' %}" class="text-blue-600 hover:underline">← Back to Dashboard</a>
+            <h1 class="text-3xl font-bold mt-2">🎵 Audio Assets</h1>
+            <p class="text-gray-600">Manage bumpers, outros, legal disclaimers, and sound effects</p>
+        </div>
+    </div>
+    
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Upload Form -->
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-xl font-bold mb-4">➕ Add Audio Asset</h2>
+            
+            <form id="upload-form" enctype="multipart/form-data">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                        <input type="text" name="name" required 
+                               class="w-full p-2 border rounded-lg"
+                               placeholder="e.g., Forge Publisher Intro">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                        <select name="asset_type" class="w-full p-2 border rounded-lg">
+                            <option value="bumper">Intro Bumper</option>
+                            <option value="outro">Outro</option>
+                            <option value="legal">Legal Disclaimer</option>
+                            <option value="transition">Transition Sound</option>
+                            <option value="effect">Sound Effect</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                        <textarea name="description" rows="2" 
+                                  class="w-full p-2 border rounded-lg"
+                                  placeholder="Brief description..."></textarea>
+                    </div>
+                    
+                    <hr class="my-4">
+                    
+                    <div class="space-y-4">
+                        <p class="text-sm font-medium text-gray-700">Choose how to add audio:</p>
+                        
+                        <!-- Option 1: Upload File -->
+                        <div class="p-3 bg-gray-50 rounded-lg">
+                            <label class="flex items-center gap-2 mb-2">
+                                <input type="radio" name="source_type" value="upload" checked 
+                                       onchange="toggleSourceType('upload')">
+                                <span class="font-medium">📁 Upload Audio File</span>
+                            </label>
+                            <div id="upload-section">
+                                <input type="file" name="audio_file" accept=".wav,.mp3,.ogg,.m4a"
+                                       class="w-full text-sm">
+                                <p class="text-xs text-gray-500 mt-1">WAV, MP3, OGG, or M4A</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Option 2: Generate from Text -->
+                        <div class="p-3 bg-gray-50 rounded-lg">
+                            <label class="flex items-center gap-2 mb-2">
+                                <input type="radio" name="source_type" value="text"
+                                       onchange="toggleSourceType('text')">
+                                <span class="font-medium">🎤 Generate from Text (TTS)</span>
+                            </label>
+                            <div id="text-section" class="hidden">
+                                <textarea name="source_text" rows="4" 
+                                          class="w-full p-2 border rounded-lg text-sm"
+                                          placeholder="Enter text to convert to speech..."></textarea>
+                                <div class="mt-2">
+                                    <label class="text-xs text-gray-500">Voice:</label>
+                                    <select name="voice_id" class="w-full p-1 border rounded text-sm">
+                                        {# Will be populated by JS #}
+                                        <option value="">Default Voice</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" 
+                            class="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium">
+                        ➕ Add Audio Asset
+                    </button>
+                </div>
+            </form>
+        </div>
+        
+        <!-- Assets List -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Bumpers -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-lg font-semibold mb-4">🎬 Intro Bumpers</h3>
+                {% if bumpers %}
+                    <div class="space-y-2">
+                        {% for asset in bumpers %}
+                            {% include 'books/_audio_asset_row.html' %}
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-gray-500 text-sm">No bumpers yet. Add one to play at the start of your audiobooks.</p>
+                {% endif %}
+            </div>
+            
+            <!-- Outros -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-lg font-semibold mb-4">🎵 Outros</h3>
+                {% if outros %}
+                    <div class="space-y-2">
+                        {% for asset in outros %}
+                            {% include 'books/_audio_asset_row.html' %}
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-gray-500 text-sm">No outros yet. Add one to play at the end of your audiobooks.</p>
+                {% endif %}
+            </div>
+            
+            <!-- Legal Disclaimers -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-lg font-semibold mb-4">⚖️ Legal Disclaimers</h3>
+                {% if legals %}
+                    <div class="space-y-2">
+                        {% for asset in legals %}
+                            {% include 'books/_audio_asset_row.html' %}
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-gray-500 text-sm">No legal disclaimers yet. Generate one from text.</p>
+                {% endif %}
+            </div>
+            
+            <!-- Transitions & Effects -->
+            {% if transitions or effects %}
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-lg font-semibold mb-4">🔊 Transitions & Effects</h3>
+                <div class="space-y-2">
+                    {% for asset in transitions %}
+                        {% include 'books/_audio_asset_row.html' %}
+                    {% endfor %}
+                    {% for asset in effects %}
+                        {% include 'books/_audio_asset_row.html' %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleSourceType(type) {
+    const uploadSection = document.getElementById('upload-section');
+    const textSection = document.getElementById('text-section');
+    
+    if (type === 'upload') {
+        uploadSection.classList.remove('hidden');
+        textSection.classList.add('hidden');
+    } else {
+        uploadSection.classList.add('hidden');
+        textSection.classList.remove('hidden');
+    }
+}
+
+document.getElementById('upload-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    
+    try {
+        const response = await fetch('{% url "audio_asset_create" %}', {
+            method: 'POST',
+            body: formData,
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('Audio asset created successfully!');
+            window.location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Unknown error'));
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+});
+
+async function deleteAsset(assetId) {
+    if (!confirm('Are you sure you want to delete this audio asset?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/audio-asset/${assetId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            window.location.reload();
+        } else {
+            alert('Error: ' + (data.error || 'Unknown error'));
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+}
+
+function playAsset(assetId) {
+    // Get or create audio element
+    let audio = document.getElementById(`audio-${assetId}`);
+    if (!audio) {
+        audio = document.createElement('audio');
+        audio.id = `audio-${assetId}`;
+        audio.src = `/audio-asset/${assetId}/download/`;
+        document.body.appendChild(audio);
+    }
+    
+    if (audio.paused) {
+        audio.play();
+    } else {
+        audio.pause();
+        audio.currentTime = 0;
+    }
+}
+</script>
+{% endblock %}

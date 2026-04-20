@@ -1,0 +1,15 @@
+ebooklib
+beautifulsoup4
+requests
+openai
+pyyaml
+pydantic
+python-dotenv
+aiohttp
+Pillow
+
+# TTS providers (install as needed)
+edge-tts                    # Microsoft neural voices (free, online)
+# TTS                       # Coqui XTTS (local, expressive) - uncomment to install
+#                           # Note: pip install TTS (~2GB model download on first use)
+#                           # Requires: torch, numpy, scipy

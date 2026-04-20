@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}{{ filename }} | Forge Publisher{% endblock %}
+
+{% block content %}
+<h1 class="text-xl font-bold mb-4">{{ filename }}</h1>
+{% if saved %}
+    <div class="mb-4 p-2 bg-green-100 text-green-800 rounded">Saved!</div>
+{% endif %}
+<form method="post" class="mb-4">
+    {% csrf_token %}
+    <textarea name="content" rows="20" class="w-full font-mono text-sm p-2 border rounded focus:outline-none focus:ring-2 focus:ring-indigo-400">{{ content }}</textarea>
+    <button type="submit" class="mt-4 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Save</button>
+</form>
+{% if annotation %}
+    <div class="mt-8">
+        <h2 class="text-lg font-semibold mb-2">Annotation (JSON)</h2>
+        <pre class="bg-gray-100 rounded p-4 text-xs overflow-x-auto">{{ annotation|safe|json_script:"annotation-data" }}</pre>
+        <a href="{% url 'annotation_edit' filename|cut:'.txt'|add:'.json' %}" class="text-indigo-600 hover:underline text-sm">Edit Annotation</a>
+    </div>
+{% endif %}
+<a href="/" class="mt-6 inline-block text-indigo-600 hover:underline">&larr; Back to manuscripts</a>
+{% endblock %}

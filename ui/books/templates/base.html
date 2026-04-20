@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Forge Publisher Book Pipeline{% endblock %}</title>
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen text-gray-900">
+    <nav class="bg-white shadow mb-8">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex justify-between items-center mb-4">
+                <span class="font-bold text-xl text-indigo-600">Forge Publisher</span>
+                <span class="text-gray-500">Book Pipeline</span>
+            </div>
+            <div class="flex gap-6 text-sm">
+                <a href="{% url 'book_list' %}" class="text-gray-700 hover:text-indigo-600">Manuscripts</a>
+                <a href="{% url 'annotation_list' %}" class="text-gray-700 hover:text-indigo-600">Annotations</a>
+                <a href="{% url 'book_data_list' %}" class="text-gray-700 hover:text-indigo-600">Book Data</a>
+                <a href="{% url 'book_dashboard' %}" class="text-gray-700 hover:text-indigo-600 font-semibold">Build Pipeline</a>
+            </div>
+        </div>
+    </nav>
+    <main class="container mx-auto px-4">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

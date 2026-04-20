@@ -1,0 +1,1364 @@
+{% extends 'base.html' %}
+
+{% block title %}Build Audio Book - {{ book.title }} - Forge Publisher{% endblock %}
+
+{% block content %}
+<div class="container mx-auto">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <a href="{% url 'book_dashboard' %}" class="text-blue-600 hover:underline">← Back to Dashboard</a>
+            <h1 class="text-3xl font-bold mt-2">🎙️ Build Audio Book</h1>
+            <p class="text-gray-600">{{ book.title }} by {{ book.author }}</p>
+        </div>
+    </div>
+    
+    <!-- TTS Provider Status -->
+    <div class="bg-gradient-to-r from-orange-500 to-red-500 rounded-lg shadow-lg p-4 mb-6 text-white">
+        <div class="flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <span class="text-2xl">🔊</span>
+                <div>
+                    <h3 class="font-semibold">TTS Provider</h3>
+                    {% if primary_tts %}
+                        <p class="text-sm opacity-90">{{ primary_tts.name }} ({{ primary_tts.get_provider_type_display }})</p>
+                    {% else %}
+                        <p class="text-sm opacity-90">No TTS provider configured</p>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                {% if primary_tts %}
+                    <span class="w-3 h-3 rounded-full bg-green-400"></span>
+                {% else %}
+                    <span class="w-3 h-3 rounded-full bg-yellow-400 animate-pulse"></span>
+                {% endif %}
+                <a href="{% url 'tts_config' %}" class="px-3 py-1 bg-white/20 rounded text-sm hover:bg-white/30">Configure TTS</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Main Configuration Panel -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Voice Selection Form -->
+            <form method="post" action="{% url 'audiobook_build' book.id %}" class="bg-white rounded-lg shadow-lg p-6">
+                {% csrf_token %}
+                
+                <h2 class="text-xl font-bold mb-4">🎤 Voice Configuration</h2>
+                
+                <!-- TTS Provider Selection -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">TTS Provider</label>
+                    <select name="tts_provider" id="tts_provider" class="w-full p-3 border rounded-lg" onchange="onProviderChange()">
+                        {% for provider in tts_providers %}
+                            <option value="{{ provider.id }}" 
+                                    data-type="{{ provider.provider_type }}"
+                                    {% if provider.is_primary %}selected{% endif %}>
+                                {{ provider.name }} ({{ provider.get_provider_type_display }})
+                            </option>
+                        {% empty %}
+                            <option value="">No TTS providers configured</option>
+                        {% endfor %}
+                    </select>
+                    {% if not tts_providers %}
+                        <p class="text-sm text-red-600 mt-1">
+                            <a href="{% url 'tts_config' %}" class="underline">Add a TTS provider</a> to generate audio
+                        </p>
+                    {% endif %}
+                </div>
+                
+                <!-- Provider Voice Browser -->
+                <div class="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="font-medium text-blue-800">🎙️ Provider Voice Selection</h4>
+                        <span id="voice-count" class="text-sm text-blue-600"></span>
+                    </div>
+                    <p class="text-sm text-blue-600 mb-3" id="provider-voice-hint">
+                        Select a voice from your TTS provider for the best quality narration.
+                    </p>
+                    
+                    <!-- Voice Filter -->
+                    <div class="flex gap-2 mb-3">
+                        <input type="text" id="voice-filter" placeholder="🔍 Search voices..." 
+                               class="flex-1 p-2 border rounded text-sm" onkeyup="filterVoices()">
+                        <select id="gender-filter" class="p-2 border rounded text-sm" onchange="filterVoices()">
+                            <option value="">All Genders</option>
+                            <option value="Female">Female</option>
+                            <option value="Male">Male</option>
+                            <option value="Neutral">Neutral</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Voice Grid -->
+                    <div id="provider-voices-loading" class="hidden text-sm text-blue-600 py-4 text-center">
+                        <span class="animate-pulse">⏳ Loading voices...</span>
+                    </div>
+                    <div id="provider-voices-grid" class="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-64 overflow-y-auto">
+                        <!-- Voices will be populated here -->
+                    </div>
+                    
+                    <!-- Selected Voice Display -->
+                    <div id="selected-voice-display" class="hidden mt-3 p-3 bg-white rounded border-2 border-blue-400">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <span class="text-sm text-gray-500">Selected Voice:</span>
+                                <div class="font-medium text-blue-800" id="selected-voice-name">-</div>
+                                <div class="text-xs text-gray-500" id="selected-voice-style">-</div>
+                            </div>
+                            <button type="button" onclick="previewProviderVoice()" 
+                                    class="px-3 py-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm">
+                                🔊 Preview
+                            </button>
+                        </div>
+                    </div>
+                    <input type="hidden" name="provider_voice_id" id="provider_voice_id" value="">
+                </div>
+                
+                <!-- Narrator Voice -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Narrator Voice</label>
+                    <div class="flex gap-2">
+                        <select name="narrator_voice" id="narrator_voice" class="flex-1 p-3 border rounded-lg">
+                            <option value="">-- Select narrator voice --</option>
+                            {% for voice in narrator_voices %}
+                                <option value="{{ voice.id }}" data-name="{{ voice.name }}">{{ voice.name }} - {{ voice.description }}</option>
+                            {% endfor %}
+                            {% for voice in character_voices %}
+                                <option value="{{ voice.id }}" data-name="{{ voice.name }}">{{ voice.name }} - {{ voice.description }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" onclick="previewSelectedVoice('narrator_voice')"
+                                class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 flex items-center gap-1 whitespace-nowrap"
+                                title="Preview selected voice">
+                            🔊 Preview
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Annotator Voice (for annotations) -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Annotator Voice (Annotations)</label>
+                    <div class="flex gap-2">
+                        <select name="annotator_voice" id="annotator_voice" class="flex-1 p-3 border rounded-lg">
+                            <option value="">-- Select annotator voice --</option>
+                            {% for voice in annotator_voices %}
+                                <option value="{{ voice.id }}" data-name="{{ voice.name }}">{{ voice.name }} - {{ voice.description }}</option>
+                            {% endfor %}
+                            {% for voice in character_voices %}
+                                <option value="{{ voice.id }}" data-name="{{ voice.name }}">{{ voice.name }} - {{ voice.description }}</option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" onclick="previewSelectedVoice('annotator_voice')"
+                                class="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 flex items-center gap-1 whitespace-nowrap"
+                                title="Preview selected voice">
+                            🔊 Preview
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Include Annotations Toggle -->
+                <div class="mb-6">
+                    <label class="flex items-center gap-3">
+                        <input type="checkbox" name="include_annotations" checked 
+                               class="w-5 h-5 text-orange-600 rounded">
+                        <span class="font-medium">Include Annotations in Audio</span>
+                    </label>
+                    <p class="text-sm text-gray-500 ml-8">The annotator will read commentary after each section</p>
+                </div>
+                
+                <hr class="my-6">
+                
+                <!-- Character Voices Section -->
+                <h3 class="text-lg font-semibold mb-4">👥 Character Voices</h3>
+                
+                <div id="character-voice-list" class="space-y-3 mb-4">
+                    {% for mapping in character_mappings %}
+                    <div class="flex gap-3 items-center character-row">
+                        <input type="text" name="character_name" value="{{ mapping.character_name }}" 
+                               class="flex-1 p-2 border rounded" placeholder="Character name">
+                        <select name="voice_id" class="flex-1 p-2 border rounded">
+                            {% for voice in character_voices %}
+                                <option value="{{ voice.id }}" {% if voice.id == mapping.voice.id %}selected{% endif %}>
+                                    {{ voice.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <button type="button" onclick="this.parentElement.remove()" 
+                                class="px-3 py-2 bg-red-100 text-red-600 rounded hover:bg-red-200">✕</button>
+                    </div>
+                    {% endfor %}
+                    
+                    {% if detected_characters and not character_mappings %}
+                        {% for char in detected_characters %}
+                        <div class="flex gap-3 items-center character-row">
+                            <input type="text" name="character_name" value="{{ char }}" 
+                                   class="flex-1 p-2 border rounded" placeholder="Character name">
+                            <select name="voice_id" class="flex-1 p-2 border rounded">
+                                <option value="">-- Select voice --</option>
+                                {% for voice in character_voices %}
+                                    <option value="{{ voice.id }}">{{ voice.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" onclick="this.parentElement.remove()" 
+                                    class="px-3 py-2 bg-red-100 text-red-600 rounded hover:bg-red-200">✕</button>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+                
+                <button type="button" onclick="addCharacterRow()" 
+                        class="px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 mb-6">
+                    ➕ Add Character
+                </button>
+                
+                <hr class="my-6">
+                
+                <!-- Voice Style Prompt -->
+                <h3 class="text-lg font-semibold mb-4">🎭 Voice Style & Tone</h3>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Style Instructions
+                        <span class="text-gray-400 text-xs ml-1">(optional)</span>
+                    </label>
+                    <textarea name="style_prompt" rows="3" 
+                              class="w-full p-3 border rounded-lg"
+                              placeholder="e.g., 'Read in a humorous, laid-back tone' or 'Narrate with a southern accent' or 'Dramatic and suspenseful reading'">{{ last_build.style_prompt }}</textarea>
+                    <p class="text-sm text-gray-500 mt-1">
+                        Describe the style, tone, or accent you want for the narration
+                    </p>
+                </div>
+                
+                <hr class="my-6">
+                
+                <!-- Legal Disclaimer Section -->
+                <h3 class="text-lg font-semibold mb-4">⚖️ Legal Disclaimer</h3>
+                <div class="mb-4">
+                    <label class="flex items-center gap-3">
+                        <input type="checkbox" name="include_legal_disclaimer" id="include_legal_disclaimer"
+                               class="w-5 h-5 text-orange-600 rounded"
+                               onchange="toggleLegalDisclaimer(this.checked)">
+                        <span class="font-medium">Include Legal Disclaimer</span>
+                    </label>
+                    <p class="text-sm text-gray-500 ml-8">Read a legal disclaimer at the beginning of the audiobook</p>
+                </div>
+                <div id="legal-disclaimer-section" class="hidden mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Disclaimer Text</label>
+                    <textarea name="legal_disclaimer_text" id="legal_disclaimer_text" rows="4" 
+                              class="w-full p-3 border rounded-lg"
+                              placeholder="Enter legal disclaimer text...">{{ default_legal_disclaimer }}</textarea>
+                    <div class="flex gap-2 mt-2">
+                        <button type="button" onclick="insertDefaultDisclaimer()" 
+                                class="px-3 py-1 bg-gray-100 text-gray-700 rounded text-sm hover:bg-gray-200">
+                            📋 Default Disclaimer
+                        </button>
+                        <button type="button" onclick="previewDisclaimer()" 
+                                class="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200">
+                            🔊 Preview Disclaimer Audio
+                        </button>
+                        <button type="button" onclick="downloadDisclaimerAudio()" 
+                                class="px-3 py-1 bg-green-100 text-green-700 rounded text-sm hover:bg-green-200">
+                            ⬇️ Download Audio
+                        </button>
+                    </div>
+                </div>
+                
+                <hr class="my-6">
+                
+                <!-- Bumper/Outro Audio -->
+                <h3 class="text-lg font-semibold mb-4">🎵 Intro & Outro Audio</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Intro Bumper</label>
+                        <select name="bumper_asset" class="w-full p-3 border rounded-lg">
+                            <option value="">-- No intro --</option>
+                            {% for asset in bumper_assets %}
+                                <option value="{{ asset.id }}">{{ asset.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Audio played at the start of the audiobook</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Outro</label>
+                        <select name="outro_asset" class="w-full p-3 border rounded-lg">
+                            <option value="">-- No outro --</option>
+                            {% for asset in outro_assets %}
+                                <option value="{{ asset.id }}">{{ asset.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Audio played at the end of the audiobook</p>
+                    </div>
+                </div>
+                <a href="{% url 'audio_assets' %}" class="text-blue-600 hover:underline text-sm">
+                    ➕ Manage Audio Assets (upload bumpers, outros, etc.)
+                </a>
+                
+                <hr class="my-6">
+                
+                <!-- Annotation Stingers -->
+                <h3 class="text-lg font-semibold mb-4">🎶 Annotation Stingers</h3>
+                <p class="text-sm text-gray-600 mb-4">
+                    Add musical sounds before and after annotations for a professional podcast feel.
+                </p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Intro Stinger</label>
+                        <select name="annotator_intro_stinger" class="w-full p-3 border rounded-lg">
+                            <option value="">-- No stinger --</option>
+                            {% for asset in transition_assets %}
+                                <option value="{{ asset.id }}">{{ asset.name }}</option>
+                            {% endfor %}
+                            {% for asset in effect_assets %}
+                                <option value="{{ asset.id }}">{{ asset.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Sound played before annotator speaks</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Outro Stinger</label>
+                        <select name="annotator_outro_stinger" class="w-full p-3 border rounded-lg">
+                            <option value="">-- No stinger --</option>
+                            {% for asset in transition_assets %}
+                                <option value="{{ asset.id }}">{{ asset.name }}</option>
+                            {% endfor %}
+                            {% for asset in effect_assets %}
+                                <option value="{{ asset.id }}">{{ asset.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Sound played after annotator finishes</p>
+                    </div>
+                </div>
+                
+                <hr class="my-6">
+                
+                <!-- Narration Range -->
+                <h3 class="text-lg font-semibold mb-4">📖 Narration Range</h3>
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Start Section</label>
+                        <input type="number" name="start_section" min="1" value="1" 
+                               class="w-full p-3 border rounded-lg">
+                        <p class="text-xs text-gray-500 mt-1">Which section to begin narration</p>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">End Section</label>
+                        <input type="number" name="end_section" min="1" 
+                               placeholder="All" 
+                               class="w-full p-3 border rounded-lg">
+                        <p class="text-xs text-gray-500 mt-1">Leave blank for entire book</p>
+                    </div>
+                </div>
+                <p class="text-sm text-gray-500 mb-4">
+                    📊 Book has <strong>{{ section_count }} sections</strong>
+                </p>
+                
+                <hr class="my-6">
+                
+                <!-- Build Button -->
+                <button type="submit" 
+                        class="w-full px-6 py-4 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-lg hover:from-orange-700 hover:to-red-700 font-bold text-lg"
+                        {% if not tts_providers %}disabled{% endif %}>
+                    🎙️ Start Building Audio Book
+                </button>
+            </form>
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="space-y-6">
+            <!-- Available Voices -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-lg font-semibold mb-4">📢 Available Voices</h3>
+                
+                <!-- Preview Source Toggle -->
+                <div class="mb-4">
+                    <div class="flex gap-2 mb-3">
+                        <button type="button" onclick="setPreviewSource('custom')" 
+                                id="preview-source-custom" 
+                                class="flex-1 px-3 py-2 text-sm rounded border-2 border-blue-500 bg-blue-50 text-blue-700 font-medium">
+                            ✏️ Custom Text
+                        </button>
+                        <button type="button" onclick="setPreviewSource('book')" 
+                                id="preview-source-book" 
+                                class="flex-1 px-3 py-2 text-sm rounded border-2 border-gray-300 bg-white text-gray-600 hover:border-orange-400">
+                            📖 From Book
+                        </button>
+                    </div>
+                
+                    <!-- Custom Text Preview -->
+                    <div id="custom-preview-section">
+                        <label class="block text-xs text-gray-500 mb-1">Preview Text</label>
+                        <textarea id="preview-text" rows="2" class="w-full p-2 border rounded text-sm"
+                                  placeholder="Enter text to preview...">Hello, I am a voice for Forge Publisher. This is a preview of how I sound when reading your book.</textarea>
+                    </div>
+                    
+                    <!-- Book Section Preview -->
+                    <div id="book-preview-section" class="hidden">
+                        <label class="block text-xs text-gray-500 mb-1">📖 Preview from {{ book.title }}</label>
+                        <select id="book-section-select" class="w-full p-2 border rounded text-sm mb-2"
+                                onchange="loadSectionContent()">
+                            <option value="">Loading sections...</option>
+                        </select>
+                        <div id="section-preview-hint" class="text-xs text-gray-400 mb-2">
+                            Select a section to preview how the voice reads actual book content
+                        </div>
+                        <div id="section-content-loading" class="hidden text-sm text-orange-600 py-2">
+                            <span class="animate-pulse">📖 Loading section...</span>
+                        </div>
+                        <textarea id="book-preview-text" rows="3" 
+                                  class="w-full p-2 border rounded text-sm bg-orange-50 hidden"
+                                  readonly placeholder="Section content will appear here..."></textarea>
+                        <div id="section-info" class="hidden text-xs text-gray-500 mt-1">
+                            <span id="section-char-count"></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Audio Player -->
+                <div id="voice-preview-player" class="hidden mb-4 p-3 bg-gray-100 rounded-lg">
+                    <div class="flex items-center justify-between mb-2">
+                        <span id="preview-voice-name" class="text-sm font-medium text-gray-700">Preview</span>
+                        <button onclick="stopPreview()" class="text-gray-500 hover:text-gray-700 text-sm">✕ Close</button>
+                    </div>
+                    <audio id="preview-audio" controls class="w-full h-8"></audio>
+                    <div id="preview-loading" class="hidden text-sm text-gray-500 py-2">
+                        <span class="animate-pulse">🎙️ Generating preview...</span>
+                    </div>
+                </div>
+                
+                {% if voice_profiles %}
+                    <div class="space-y-2 max-h-80 overflow-y-auto">
+                        {% for voice in voice_profiles %}
+                        <div class="p-3 bg-gray-50 rounded hover:bg-gray-100 transition-colors voice-card"
+                             data-voice-id="{{ voice.id }}" 
+                             data-voice-name="{{ voice.name }}">
+                            <div class="flex justify-between items-start">
+                                <div class="flex-1">
+                                    <div class="font-medium text-sm">{{ voice.name }}</div>
+                                    <div class="text-gray-500 text-xs">{{ voice.get_role_display }} • {{ voice.tone }}</div>
+                                    <div class="text-gray-400 text-xs mt-1">
+                                        Speed: {{ voice.speed }}x • Pitch: {{ voice.pitch }}x
+                                    </div>
+                                </div>
+                                <div class="flex gap-1">
+                                    <button type="button" 
+                                            onclick="previewVoice({{ voice.id }}, '{{ voice.name|escapejs }}')"
+                                            class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs hover:bg-blue-200 flex items-center gap-1"
+                                            title="Preview voice">
+                                        🔊 <span class="hidden sm:inline">Preview</span>
+                                    </button>
+                                    <button type="button"
+                                            onclick="editVoice({{ voice.id }})"
+                                            class="px-2 py-1 bg-gray-200 text-gray-600 rounded text-xs hover:bg-gray-300"
+                                            title="Edit voice">
+                                        ✏️
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-gray-500 text-sm">No voices configured yet.</p>
+                {% endif %}
+                
+                <button type="button" onclick="showAddVoiceModal()" 
+                        class="w-full mt-4 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 text-sm">
+                    ➕ Add Voice Profile
+                </button>
+                
+                <button type="button" onclick="createEdgeTTSVoices()" 
+                        class="w-full mt-2 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 text-sm"
+                        title="Add ready-to-use Microsoft neural voices">
+                    ⚡ Add Edge TTS Voices
+                </button>
+            </div>
+            
+            <!-- Recent Audio Builds -->
+            <div class="bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-lg font-semibold mb-4">📼 Recent Audio Builds</h3>
+                
+                {% if audio_builds %}
+                    <div class="space-y-2">
+                        {% for build in audio_builds %}
+                        <a href="{% url 'audiobook_build_status' build.id %}" 
+                           class="block p-3 bg-gray-50 rounded hover:bg-gray-100">
+                            <div class="flex justify-between">
+                                <span class="font-medium">
+                                    {% if build.status == 'success' %}
+                                        <span class="text-green-600">✓</span>
+                                    {% elif build.status == 'failed' %}
+                                        <span class="text-red-600">✗</span>
+                                    {% elif build.status == 'generating' %}
+                                        <span class="text-blue-600">⏳</span>
+                                    {% else %}
+                                        <span class="text-gray-600">○</span>
+                                    {% endif %}
+                                    {{ build.get_status_display }}
+                                </span>
+                                <span class="text-gray-500 text-sm">{{ build.created_at|date:"M d" }}</span>
+                            </div>
+                            {% if build.duration_seconds %}
+                                <div class="text-xs text-gray-500">Duration: {{ build.duration_formatted }}</div>
+                            {% endif %}
+                        </a>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="text-gray-500 text-sm">No audio builds yet.</p>
+                {% endif %}
+            </div>
+            
+            <!-- PersonaPlex Info -->
+            <div class="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-lg shadow p-6 border border-purple-200">
+                <h3 class="text-lg font-semibold mb-2 text-purple-800">🚀 PersonaPlex Voice Cloning</h3>
+                <p class="text-sm text-purple-700 mb-3">
+                    Create unique character voices by uploading a 5-10 second audio sample.
+                </p>
+                <ul class="text-xs text-purple-600 space-y-1">
+                    <li>• Clone any voice from a short sample</li>
+                    <li>• Adjust pitch, speed, and tone</li>
+                    <li>• Describe persona for better performance</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Voice Modal -->
+<div id="add-voice-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg shadow-xl p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <h3 class="text-xl font-bold mb-4">Add Voice Profile</h3>
+        
+        <form method="post" action="{% url 'voice_profile_create' %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="{% url 'audiobook_config' book.id %}">
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Voice Name</label>
+                    <input type="text" name="name" required class="w-full p-2 border rounded">
+                </div>
+                
+                <!-- Provider Selection for New Voice -->
+                <div>
+                    <label class="block text-sm font-medium mb-1">TTS Provider</label>
+                    <select name="provider_id" id="modal-provider-select" class="w-full p-2 border rounded" onchange="loadModalProviderVoices()">
+                        {% for provider in tts_providers %}
+                            <option value="{{ provider.id }}" data-type="{{ provider.provider_type }}" {% if provider.is_primary %}selected{% endif %}>
+                                {{ provider.name }} ({{ provider.get_provider_type_display }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Provider Voice Selection in Modal -->
+                <div class="p-3 bg-blue-50 rounded border border-blue-200">
+                    <label class="block text-sm font-medium text-blue-800 mb-2">🎙️ Provider Voice</label>
+                    <div id="modal-voice-loading" class="hidden text-sm text-blue-600">
+                        <span class="animate-pulse">Loading voices...</span>
+                    </div>
+                    <select name="voice_id" id="modal-voice-select" class="w-full p-2 border rounded bg-white">
+                        <option value="">-- Select provider voice --</option>
+                    </select>
+                    <p class="text-xs text-blue-600 mt-1" id="modal-voice-hint">Choose the base voice from your TTS provider</p>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium mb-1">Role</label>
+                    <select name="role" class="w-full p-2 border rounded">
+                        <option value="character">Character</option>
+                        <option value="narrator">Narrator</option>
+                        <option value="annotator">Annotator (Annotations)</option>
+                    </select>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Pitch (0.5-2.0)</label>
+                        <input type="number" name="pitch" value="1.0" step="0.1" min="0.5" max="2.0" 
+                               class="w-full p-2 border rounded">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Speed (0.5-2.0)</label>
+                        <input type="number" name="speed" value="1.0" step="0.1" min="0.5" max="2.0" 
+                               class="w-full p-2 border rounded">
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium mb-1">Tone</label>
+                    <select name="tone" class="w-full p-2 border rounded">
+                        <option value="neutral">Neutral</option>
+                        <option value="dramatic">Dramatic</option>
+                        <option value="gentle">Gentle</option>
+                        <option value="stern">Stern</option>
+                        <option value="anxious">Anxious</option>
+                        <option value="warm">Warm</option>
+                        <option value="friendly">Friendly</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium mb-1">Description</label>
+                    <input type="text" name="description" class="w-full p-2 border rounded" 
+                           placeholder="Brief description of the voice">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium mb-1">Persona Instructions (optional)</label>
+                    <textarea name="persona_text" rows="2" class="w-full p-2 border rounded"
+                              placeholder="e.g., You are a dramatic narrator with a deep, resonant voice"></textarea>
+                </div>
+                
+                <!-- Preview new voice settings -->
+                <div class="border-t pt-4 mt-4">
+                    <label class="block text-sm font-medium mb-1">Test Preview</label>
+                    <div class="flex gap-2">
+                        <input type="text" id="new-voice-preview-text" 
+                               class="flex-1 p-2 border rounded text-sm"
+                               value="Hello, this is a preview of the new voice settings."
+                               placeholder="Preview text...">
+                        <button type="button" onclick="previewNewVoiceSettings()"
+                                class="px-3 py-2 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm whitespace-nowrap">
+                            🔊 Test
+                        </button>
+                    </div>
+                    <div id="new-voice-preview-player" class="hidden mt-2">
+                        <audio id="new-voice-preview-audio" controls class="w-full h-8"></audio>
+                    </div>
+                    <div id="new-voice-preview-loading" class="hidden mt-2 text-sm text-gray-500">
+                        <span class="animate-pulse">🎙️ Generating preview...</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex gap-3 mt-6">
+                <button type="button" onclick="hideAddVoiceModal()" 
+                        class="flex-1 px-4 py-2 bg-gray-200 rounded hover:bg-gray-300">Cancel</button>
+                <button type="submit" 
+                        class="flex-1 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Add Voice</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function addCharacterRow() {
+    const list = document.getElementById('character-voice-list');
+    const row = document.createElement('div');
+    row.className = 'flex gap-3 items-center character-row';
+    row.innerHTML = `
+        <input type="text" name="character_name" class="flex-1 p-2 border rounded" placeholder="Character name">
+        <select name="voice_id" class="flex-1 p-2 border rounded">
+            <option value="">-- Select voice --</option>
+            {% for voice in character_voices %}
+                <option value="{{ voice.id }}">{{ voice.name }}</option>
+            {% endfor %}
+        </select>
+        <button type="button" onclick="this.parentElement.remove()" 
+                class="px-3 py-2 bg-red-100 text-red-600 rounded hover:bg-red-200">✕</button>
+    `;
+    list.appendChild(row);
+}
+
+function hideAddVoiceModal() {
+    document.getElementById('add-voice-modal').classList.add('hidden');
+    // Clear the preview player in the modal
+    const audio = document.getElementById('new-voice-preview-audio');
+    const playerDiv = document.getElementById('new-voice-preview-player');
+    if (audio) {
+        audio.pause();
+        audio.src = '';
+    }
+    if (playerDiv) {
+        playerDiv.classList.add('hidden');
+    }
+}
+
+// Voice Preview Functions
+let currentPreviewAbort = null;
+let currentPreviewSource = 'custom';
+
+// Preview source toggle
+function setPreviewSource(source) {
+    currentPreviewSource = source;
+    
+    // Update button styles
+    const customBtn = document.getElementById('preview-source-custom');
+    const bookBtn = document.getElementById('preview-source-book');
+    const customSection = document.getElementById('custom-preview-section');
+    const bookSection = document.getElementById('book-preview-section');
+    
+    if (source === 'custom') {
+        customBtn.className = 'flex-1 px-3 py-2 text-sm rounded border-2 border-blue-500 bg-blue-50 text-blue-700 font-medium';
+        bookBtn.className = 'flex-1 px-3 py-2 text-sm rounded border-2 border-gray-300 bg-white text-gray-600 hover:border-orange-400';
+        customSection.classList.remove('hidden');
+        bookSection.classList.add('hidden');
+    } else {
+        bookBtn.className = 'flex-1 px-3 py-2 text-sm rounded border-2 border-orange-500 bg-orange-50 text-orange-700 font-medium';
+        customBtn.className = 'flex-1 px-3 py-2 text-sm rounded border-2 border-gray-300 bg-white text-gray-600 hover:border-blue-400';
+        bookSection.classList.remove('hidden');
+        customSection.classList.add('hidden');
+        
+        // Load sections if not already loaded
+        loadBookSections();
+    }
+}
+
+// Load book sections for preview
+let sectionsLoaded = false;
+async function loadBookSections() {
+    if (sectionsLoaded) return;
+    
+    const select = document.getElementById('book-section-select');
+    try {
+        const response = await fetch('/api/book/{{ book.id }}/sections/');
+        const data = await response.json();
+        
+        if (data.sections && data.sections.length > 0) {
+            select.innerHTML = '<option value="">-- Select a section to preview --</option>';
+            data.sections.forEach((section, idx) => {
+                const option = document.createElement('option');
+                option.value = section.index;
+                option.textContent = `${section.title} (${section.length.toLocaleString()} chars)`;
+                option.dataset.preview = section.preview;
+                select.appendChild(option);
+            });
+            sectionsLoaded = true;
+        } else {
+            select.innerHTML = '<option value="">No sections found</option>';
+        }
+    } catch (error) {
+        console.error('Error loading sections:', error);
+        select.innerHTML = '<option value="">Error loading sections</option>';
+    }
+}
+
+// Load section content when selected
+async function loadSectionContent() {
+    const select = document.getElementById('book-section-select');
+    const sectionIndex = select.value;
+    const textArea = document.getElementById('book-preview-text');
+    const loading = document.getElementById('section-content-loading');
+    const sectionInfo = document.getElementById('section-info');
+    const charCount = document.getElementById('section-char-count');
+    
+    if (!sectionIndex) {
+        textArea.classList.add('hidden');
+        sectionInfo.classList.add('hidden');
+        return;
+    }
+    
+    loading.classList.remove('hidden');
+    textArea.classList.add('hidden');
+    
+    try {
+        const response = await fetch(`/api/book/{{ book.id }}/section/${sectionIndex}/`);
+        const data = await response.json();
+        
+        if (data.content) {
+            // Show first 500 chars for preview
+            const previewContent = data.content.substring(0, 500);
+            textArea.value = previewContent + (data.content.length > 500 ? '...' : '');
+            textArea.classList.remove('hidden');
+            sectionInfo.classList.remove('hidden');
+            charCount.textContent = `Previewing first 500 of ${data.content.length.toLocaleString()} characters`;
+            
+            // Store full content for actual TTS
+            textArea.dataset.fullContent = data.content;
+        }
+    } catch (error) {
+        console.error('Error loading section:', error);
+        textArea.value = 'Error loading section content';
+        textArea.classList.remove('hidden');
+    }
+    
+    loading.classList.add('hidden');
+}
+
+async function previewVoice(voiceId, voiceName) {
+    // Get text based on current preview source
+    let previewText;
+    if (currentPreviewSource === 'book') {
+        const bookTextArea = document.getElementById('book-preview-text');
+        // Use stored full content, but limit to first 800 chars for preview
+        previewText = (bookTextArea.dataset.fullContent || bookTextArea.value).substring(0, 800);
+    } else {
+        previewText = document.getElementById('preview-text').value.trim();
+    }
+    
+    if (!previewText) {
+        alert(currentPreviewSource === 'book' 
+            ? 'Please select a section from the book first' 
+            : 'Please enter some text to preview');
+        return;
+    }
+    
+    const playerDiv = document.getElementById('voice-preview-player');
+    const audio = document.getElementById('preview-audio');
+    const loading = document.getElementById('preview-loading');
+    const voiceNameSpan = document.getElementById('preview-voice-name');
+    
+    // Show player and loading state
+    playerDiv.classList.remove('hidden');
+    loading.classList.remove('hidden');
+    audio.classList.add('hidden');
+    voiceNameSpan.textContent = `🎤 ${voiceName}`;
+    
+    // Cancel any previous preview
+    if (currentPreviewAbort) {
+        currentPreviewAbort.abort();
+    }
+    currentPreviewAbort = new AbortController();
+    
+    // Highlight current voice card
+    document.querySelectorAll('.voice-card').forEach(card => {
+        card.classList.remove('ring-2', 'ring-blue-500');
+    });
+    const currentCard = document.querySelector(`.voice-card[data-voice-id="${voiceId}"]`);
+    if (currentCard) {
+        currentCard.classList.add('ring-2', 'ring-blue-500');
+    }
+    
+    try {
+        // Get the selected TTS provider
+        const providerSelect = document.querySelector('select[name="tts_provider"]');
+        const providerId = providerSelect ? providerSelect.value : '';
+        
+        const formData = new FormData();
+        formData.append('voice_id', voiceId);
+        formData.append('sample_text', previewText);
+        if (providerId) formData.append('provider_id', providerId);
+        
+        const response = await fetch('{% url "voice_preview" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            signal: currentPreviewAbort.signal
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to generate preview');
+        }
+        
+        // Get audio blob and play
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        
+        audio.src = audioUrl;
+        loading.classList.add('hidden');
+        audio.classList.remove('hidden');
+        audio.play();
+        
+    } catch (error) {
+        if (error.name === 'AbortError') {
+            return; // Cancelled, ignore
+        }
+        loading.classList.add('hidden');
+        audio.classList.remove('hidden');
+        voiceNameSpan.textContent = `❌ Error: ${error.message}`;
+        console.error('Preview error:', error);
+    }
+}
+
+function stopPreview() {
+    const playerDiv = document.getElementById('voice-preview-player');
+    const audio = document.getElementById('preview-audio');
+    
+    audio.pause();
+    audio.src = '';
+    playerDiv.classList.add('hidden');
+    
+    // Remove highlight
+    document.querySelectorAll('.voice-card').forEach(card => {
+        card.classList.remove('ring-2', 'ring-blue-500');
+    });
+    
+    if (currentPreviewAbort) {
+        currentPreviewAbort.abort();
+        currentPreviewAbort = null;
+    }
+}
+
+function editVoice(voiceId) {
+    // TODO: Implement voice editing modal
+    alert('Voice editing coming soon! For now, create a new voice with your preferred settings.');
+}
+
+// Preview voice from a dropdown selection
+function previewSelectedVoice(selectId) {
+    const select = document.getElementById(selectId);
+    const selectedOption = select.options[select.selectedIndex];
+    const voiceId = select.value;
+    
+    if (!voiceId) {
+        alert('Please select a voice first');
+        return;
+    }
+    
+    const voiceName = selectedOption.dataset.name || selectedOption.text.split(' - ')[0];
+    previewVoice(voiceId, voiceName);
+}
+
+// Preview new voice settings from the Add Voice modal
+async function previewNewVoiceSettings() {
+    const modal = document.getElementById('add-voice-modal');
+    const form = modal.querySelector('form');
+    const previewText = document.getElementById('new-voice-preview-text').value.trim();
+    const audio = document.getElementById('new-voice-preview-audio');
+    const playerDiv = document.getElementById('new-voice-preview-player');
+    const loadingDiv = document.getElementById('new-voice-preview-loading');
+    
+    if (!previewText) {
+        alert('Please enter preview text');
+        return;
+    }
+    
+    // Get form values
+    const pitch = form.querySelector('input[name="pitch"]').value || '1.0';
+    const speed = form.querySelector('input[name="speed"]').value || '1.0';
+    const tone = form.querySelector('select[name="tone"]').value || 'neutral';
+    
+    // Show loading
+    playerDiv.classList.add('hidden');
+    loadingDiv.classList.remove('hidden');
+    
+    try {
+        // Get the selected TTS provider from main form
+        const providerSelect = document.querySelector('select[name="tts_provider"]');
+        const providerId = providerSelect ? providerSelect.value : '';
+        
+        const formData = new FormData();
+        formData.append('sample_text', previewText);
+        formData.append('pitch', pitch);
+        formData.append('speed', speed);
+        formData.append('tone', tone);
+        if (providerId) formData.append('provider_id', providerId);
+        
+        const response = await fetch('{% url "voice_preview" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to generate preview');
+        }
+        
+        // Get audio blob and play
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        
+        audio.src = audioUrl;
+        loadingDiv.classList.add('hidden');
+        playerDiv.classList.remove('hidden');
+        audio.play();
+        
+    } catch (error) {
+        loadingDiv.classList.add('hidden');
+        alert('Preview error: ' + error.message);
+        console.error('Preview error:', error);
+    }
+}
+
+// Create default Edge TTS voices
+async function createEdgeTTSVoices() {
+    try {
+        const response = await fetch('{% url "create_default_edge_tts_voices" %}', {
+            method: 'GET',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        });
+        
+        const data = await response.json();
+        if (data.error) {
+            alert('Error: ' + data.error);
+        } else {
+            alert(data.message + '\n\nRefreshing page to show new voices...');
+            window.location.reload();
+        }
+    } catch (error) {
+        alert('Error creating Edge TTS voices: ' + error.message);
+        console.error('Error:', error);
+    }
+}
+
+// Legal Disclaimer Functions
+function toggleLegalDisclaimer(checked) {
+    const section = document.getElementById('legal-disclaimer-section');
+    if (checked) {
+        section.classList.remove('hidden');
+    } else {
+        section.classList.add('hidden');
+    }
+}
+
+function insertDefaultDisclaimer() {
+    const textarea = document.getElementById('legal_disclaimer_text');
+    textarea.value = `This audiobook is a Forge Publisher production. The original work is in the public domain. This audio edition, including all narration, annotations, and commentary, is copyright Forge Publisher. 
+
+Annotations and commentary represent educational interpretations and do not constitute legal, medical, or professional advice. Views expressed are for educational and entertainment purposes only.
+
+Unauthorized reproduction or distribution of this audio is prohibited.`;
+}
+
+async function previewDisclaimer() {
+    const text = document.getElementById('legal_disclaimer_text').value.trim();
+    if (!text) {
+        alert('Please enter disclaimer text first');
+        return;
+    }
+    
+    // Get voice for preview
+    const narratorSelect = document.getElementById('narrator_voice');
+    const voiceId = narratorSelect.value || null;
+    const voiceName = 'Disclaimer';
+    
+    // Use the existing preview function if we have a voice ID
+    if (voiceId) {
+        // Override the sample text temporarily
+        const previewTextArea = document.getElementById('preview-text');
+        const originalText = previewTextArea.value;
+        previewTextArea.value = text.substring(0, 500); // Limit preview length
+        previewVoice(voiceId, voiceName);
+        previewTextArea.value = originalText;
+    } else {
+        alert('Please select a narrator voice first');
+    }
+}
+
+async function downloadDisclaimerAudio() {
+    const text = document.getElementById('legal_disclaimer_text').value.trim();
+    if (!text) {
+        alert('Please enter disclaimer text first');
+        return;
+    }
+    
+    const narratorSelect = document.getElementById('narrator_voice');
+    const voiceId = narratorSelect.value;
+    if (!voiceId) {
+        alert('Please select a narrator voice first');
+        return;
+    }
+    
+    const providerSelect = document.querySelector('select[name="tts_provider"]');
+    const providerId = providerSelect ? providerSelect.value : '';
+    
+    try {
+        const formData = new FormData();
+        formData.append('voice_id', voiceId);
+        formData.append('sample_text', text);
+        formData.append('download', 'true');
+        if (providerId) formData.append('provider_id', providerId);
+        
+        const response = await fetch('{% url "generate_audio_file" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to generate audio');
+        }
+        
+        // Download the audio file
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'legal_disclaimer.wav';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+    } catch (error) {
+        alert('Error generating audio: ' + error.message);
+        console.error('Error:', error);
+    }
+}
+
+// Close modal on escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        hideAddVoiceModal();
+        stopPreview();
+    }
+});
+
+// ==========================================
+// Dynamic Provider Voice Selection
+// ==========================================
+
+let providerVoices = []; // Cache of voices for current provider
+let selectedProviderVoice = null;
+
+// Load voices when provider changes
+async function onProviderChange() {
+    const providerSelect = document.getElementById('tts_provider');
+    const providerId = providerSelect.value;
+    const providerType = providerSelect.options[providerSelect.selectedIndex]?.dataset?.type || '';
+    
+    if (!providerId) return;
+    
+    // Update hint based on provider type
+    const hint = document.getElementById('provider-voice-hint');
+    const hints = {
+        'edge-tts': 'Choose from 48 Microsoft Neural voices with different personalities and styles.',
+        'xtts': 'XTTS supports voice cloning - upload a reference audio sample or use the default voice.',
+        'piper': 'Fast offline synthesis with various pre-trained voices.',
+        'pyttsx3': 'System voices from your computer (macOS/Windows/Linux).',
+        'gtts': 'Google TTS voices by language/region.',
+        'azure': 'Azure Neural voices (requires API key).',
+        'personaplex': 'NVIDIA PersonaPlex voices with persona customization.',
+        'riva': 'NVIDIA Riva enterprise voices.'
+    };
+    hint.textContent = hints[providerType] || 'Select a voice from your TTS provider.';
+    
+    // Fetch voices
+    await loadProviderVoices(providerId);
+}
+
+async function loadProviderVoices(providerId) {
+    const grid = document.getElementById('provider-voices-grid');
+    const loading = document.getElementById('provider-voices-loading');
+    const countSpan = document.getElementById('voice-count');
+    
+    // Show loading
+    loading.classList.remove('hidden');
+    grid.innerHTML = '';
+    
+    try {
+        const response = await fetch(`/api/tts/${providerId}/voices/`);
+        if (!response.ok) throw new Error('Failed to load voices');
+        
+        const data = await response.json();
+        providerVoices = data.voices || [];
+        
+        // Update count
+        countSpan.textContent = `${providerVoices.length} voices`;
+        
+        // Render voices
+        renderVoiceGrid(providerVoices);
+        
+    } catch (error) {
+        console.error('Error loading voices:', error);
+        grid.innerHTML = '<p class="text-red-600 text-sm col-span-2 py-4">Error loading voices. Try refreshing the page.</p>';
+    }
+    
+    loading.classList.add('hidden');
+}
+
+function renderVoiceGrid(voices) {
+    const grid = document.getElementById('provider-voices-grid');
+    
+    if (voices.length === 0) {
+        grid.innerHTML = '<p class="text-gray-500 text-sm col-span-2 py-4">No voices available for this provider.</p>';
+        return;
+    }
+    
+    grid.innerHTML = voices.map(voice => `
+        <div class="voice-option p-3 bg-white rounded border cursor-pointer hover:border-blue-400 transition-colors ${selectedProviderVoice?.id === voice.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}"
+             data-voice-id="${voice.id}"
+             data-voice-name="${voice.name}"
+             data-voice-gender="${voice.gender}"
+             data-voice-style="${voice.style}"
+             onclick="selectProviderVoice('${voice.id}', '${voice.name.replace(/'/g, "\\'")}', '${voice.style.replace(/'/g, "\\'")}')">
+            <div class="flex items-start gap-2">
+                <span class="text-lg">${voice.gender === 'Female' ? '👩' : voice.gender === 'Male' ? '👨' : '🎭'}</span>
+                <div class="flex-1 min-w-0">
+                    <div class="font-medium text-sm truncate">${voice.name}</div>
+                    <div class="text-xs text-gray-500 truncate">${voice.style}</div>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function selectProviderVoice(voiceId, voiceName, voiceStyle) {
+    selectedProviderVoice = { id: voiceId, name: voiceName, style: voiceStyle };
+    
+    // Update hidden input
+    document.getElementById('provider_voice_id').value = voiceId;
+    
+    // Update display
+    const display = document.getElementById('selected-voice-display');
+    display.classList.remove('hidden');
+    document.getElementById('selected-voice-name').textContent = voiceName;
+    document.getElementById('selected-voice-style').textContent = voiceStyle;
+    
+    // Highlight selected voice in grid
+    document.querySelectorAll('.voice-option').forEach(el => {
+        if (el.dataset.voiceId === voiceId) {
+            el.classList.add('border-blue-500', 'bg-blue-50');
+            el.classList.remove('border-gray-200');
+        } else {
+            el.classList.remove('border-blue-500', 'bg-blue-50');
+            el.classList.add('border-gray-200');
+        }
+    });
+}
+
+function filterVoices() {
+    const searchText = document.getElementById('voice-filter').value.toLowerCase();
+    const genderFilter = document.getElementById('gender-filter').value;
+    
+    const filtered = providerVoices.filter(voice => {
+        const matchesSearch = voice.name.toLowerCase().includes(searchText) || 
+                             voice.style.toLowerCase().includes(searchText);
+        const matchesGender = !genderFilter || voice.gender === genderFilter;
+        return matchesSearch && matchesGender;
+    });
+    
+    renderVoiceGrid(filtered);
+    document.getElementById('voice-count').textContent = `${filtered.length} voices`;
+}
+
+async function previewProviderVoice() {
+    if (!selectedProviderVoice) {
+        alert('Please select a voice first');
+        return;
+    }
+    
+    // Get preview text
+    let previewText;
+    if (currentPreviewSource === 'book') {
+        const bookTextArea = document.getElementById('book-preview-text');
+        previewText = (bookTextArea.dataset.fullContent || bookTextArea.value).substring(0, 500);
+    } else {
+        previewText = document.getElementById('preview-text').value.trim();
+    }
+    
+    if (!previewText) {
+        previewText = 'Hello, this is a preview of the ' + selectedProviderVoice.name + ' voice. Listen to how natural and expressive it sounds!';
+    }
+    
+    const playerDiv = document.getElementById('voice-preview-player');
+    const audio = document.getElementById('preview-audio');
+    const loading = document.getElementById('preview-loading');
+    const voiceNameSpan = document.getElementById('preview-voice-name');
+    
+    // Show player and loading state
+    playerDiv.classList.remove('hidden');
+    loading.classList.remove('hidden');
+    audio.classList.add('hidden');
+    voiceNameSpan.textContent = `🎤 ${selectedProviderVoice.name}`;
+    
+    // Cancel any previous preview
+    if (currentPreviewAbort) currentPreviewAbort.abort();
+    currentPreviewAbort = new AbortController();
+    
+    try {
+        const providerSelect = document.getElementById('tts_provider');
+        const providerId = providerSelect.value;
+        
+        const formData = new FormData();
+        formData.append('sample_text', previewText);
+        formData.append('provider_id', providerId);
+        formData.append('provider_voice_id', selectedProviderVoice.id);
+        
+        const response = await fetch('{% url "voice_preview" %}', {
+            method: 'POST',
+            body: formData,
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+            signal: currentPreviewAbort.signal
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to generate preview');
+        }
+        
+        const audioBlob = await response.blob();
+        const audioUrl = URL.createObjectURL(audioBlob);
+        
+        audio.src = audioUrl;
+        loading.classList.add('hidden');
+        audio.classList.remove('hidden');
+        audio.play();
+        
+    } catch (error) {
+        if (error.name === 'AbortError') return;
+        loading.classList.add('hidden');
+        voiceNameSpan.textContent = `❌ Error: ${error.message}`;
+        console.error('Preview error:', error);
+    }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Load voices for the initially selected provider
+    const providerSelect = document.getElementById('tts_provider');
+    if (providerSelect && providerSelect.value) {
+        onProviderChange();
+    }
+});
+
+// Load voices for modal provider select
+async function loadModalProviderVoices() {
+    const providerSelect = document.getElementById('modal-provider-select');
+    const voiceSelect = document.getElementById('modal-voice-select');
+    const loading = document.getElementById('modal-voice-loading');
+    const hint = document.getElementById('modal-voice-hint');
+    const providerId = providerSelect.value;
+    
+    if (!providerId) return;
+    
+    const providerType = providerSelect.options[providerSelect.selectedIndex]?.dataset?.type || '';
+    
+    // Update hint
+    const hints = {
+        'edge-tts': 'Choose from Microsoft Neural voices with different personalities.',
+        'xtts': 'XTTS supports voice cloning - select default or clone.',
+        'piper': 'Fast offline voices.',
+        'pyttsx3': 'System voices.',
+        'gtts': 'Google TTS by language.',
+        'azure': 'Azure Neural voices.',
+        'personaplex': 'PersonaPlex voices.',
+        'riva': 'NVIDIA Riva voices.'
+    };
+    hint.textContent = hints[providerType] || 'Select a voice.';
+    
+    // Show loading
+    loading.classList.remove('hidden');
+    voiceSelect.innerHTML = '<option value="">Loading...</option>';
+    
+    try {
+        const response = await fetch(`/api/tts/${providerId}/voices/`);
+        if (!response.ok) throw new Error('Failed to load voices');
+        
+        const data = await response.json();
+        const voices = data.voices || [];
+        
+        voiceSelect.innerHTML = '<option value="">-- Select provider voice --</option>';
+        voices.forEach(voice => {
+            const option = document.createElement('option');
+            option.value = voice.id;
+            option.textContent = `${voice.name} (${voice.gender}) - ${voice.style}`;
+            voiceSelect.appendChild(option);
+        });
+        
+    } catch (error) {
+        console.error('Error loading modal voices:', error);
+        voiceSelect.innerHTML = '<option value="">Error loading voices</option>';
+    }
+    
+    loading.classList.add('hidden');
+}
+
+function showAddVoiceModal() {
+    document.getElementById('add-voice-modal').classList.remove('hidden');
+    // Load voices for the modal
+    loadModalProviderVoices();
+}
+</script>
+{% endblock %}

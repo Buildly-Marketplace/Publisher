@@ -1,0 +1,417 @@
+{% extends 'base.html' %}
+
+{% block title %}Annotation Planning: {{ book.title }} - Forge Publisher{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto p-6">
+    <a href="{% url 'book_dashboard' %}" class="inline-block mb-4 text-blue-600 hover:underline">← Back to Dashboard</a>
+    
+    <div class="flex justify-between items-start mb-6">
+        <div>
+            <h1 class="text-3xl font-bold">🎭 Annotation Planning</h1>
+            <p class="text-gray-600 mt-1">{{ book.title }} by {{ book.author }}</p>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'book_edit' book.id %}" class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700">
+                ✏️ Edit Book
+            </a>
+            {% if book.planning_completed %}
+            <a href="{% url 'build_epub' book.id %}" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 font-semibold">
+                🚀 Start Build
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Left Column: Configuration & Sample -->
+        <div class="lg:col-span-1 space-y-6">
+            
+            <!-- Model Selection -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-xl font-semibold mb-4">🤖 AI Configuration</h2>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">AI Model</label>
+                    <select id="model-select" class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500">
+                        {% for model in all_models %}
+                        <option value="{{ model.name }}" data-provider="{{ model.provider_id }}"
+                                {% if model.name == book.preferred_model %}selected{% endif %}
+                                {% if model.is_preferred %}class="font-semibold"{% endif %}>
+                            {% if model.is_preferred %}⭐ {% endif %}{{ model.name }} ({{ model.provider }})
+                        </option>
+                        {% empty %}
+                        <option disabled>No models available - check AI Configuration</option>
+                        {% endfor %}
+                    </select>
+                    <p class="text-xs text-gray-500 mt-1">⭐ = Recommended for witty annotations</p>
+                </div>
+                
+                <button onclick="discoverModels()" class="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 text-sm">
+                    🔄 Refresh Available Models
+                </button>
+            </div>
+            
+            <!-- Text Sample Preview -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-xl font-semibold mb-4">📖 Sample Text</h2>
+                <div class="bg-gray-50 p-4 rounded border text-sm font-serif leading-relaxed max-h-48 overflow-y-auto">
+                    {{ sample_text|default:"No sample available"|linebreaks }}
+                </div>
+                <button onclick="generateSampleAnnotation()" id="preview-btn" 
+                        class="mt-4 w-full px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">
+                    ✨ Preview Annotation Style
+                </button>
+            </div>
+            
+            <!-- Sample Annotation Result -->
+            <div id="sample-annotation" class="bg-white rounded-lg shadow p-6 hidden">
+                <h2 class="text-xl font-semibold mb-4">👁️ Sample Annotation</h2>
+                <div id="sample-annotation-content" class="prose prose-sm">
+                    <!-- Filled by JS -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- Right Column: Planning Conversation -->
+        <div class="lg:col-span-2 space-y-6">
+            
+            <!-- Custom Instructions -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-xl font-semibold mb-4">📝 Custom Instructions for the Annotator</h2>
+                <textarea id="custom-instructions" rows="4" 
+                    class="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                    placeholder="Optional: Give the annotator specific guidance for this book. E.g., 'Focus more on the scientific accuracy of predictions' or 'Keep a lighter tone, this is meant to be fun' or 'Highlight connections to modern technology'">{{ book.annotation_instructions }}</textarea>
+                <button onclick="saveInstructions()" class="mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                    💾 Save Instructions
+                </button>
+            </div>
+            
+            <!-- Approach Generation -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold">🎯 Annotation Approach</h2>
+                    <button onclick="generateApproach()" id="approach-btn" 
+                            class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                        🔮 Generate Approach
+                    </button>
+                </div>
+                
+                <div id="approach-content" class="prose prose-sm max-w-none">
+                    {% if book.annotation_approach %}
+                    <div class="bg-gray-50 p-4 rounded border">
+                        {{ book.annotation_approach|linebreaks }}
+                    </div>
+                    {% else %}
+                    <div class="text-gray-500 italic">
+                        Click "Generate Approach" to have the annotator explain how he plans to annotate this book.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Conversation with Annotator -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-semibold">💬 Chat with Annotator</h2>
+                    <button onclick="clearConversation()" class="text-sm text-gray-500 hover:text-red-500">
+                        🗑️ Clear Chat
+                    </button>
+                </div>
+                
+                <!-- Chat Messages -->
+                <div id="chat-messages" class="h-64 overflow-y-auto border rounded p-4 mb-4 bg-gray-50 space-y-4">
+                    {% for msg in conversation %}
+                    <div class="{% if msg.role == 'user' %}text-right{% endif %}">
+                        <div class="inline-block max-w-[80%] p-3 rounded-lg {% if msg.role == 'user' %}bg-blue-600 text-white{% else %}bg-white border shadow-sm{% endif %}">
+                            <div class="text-sm font-medium mb-1">
+                                {% if msg.role == 'user' %}You{% else %}🤖 Annotator{% endif %}
+                            </div>
+                            <div class="{% if msg.role == 'assistant' %}prose prose-sm{% endif %}">
+                                {{ msg.content|linebreaks }}
+                            </div>
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="text-gray-400 text-center py-8">
+                        Start a conversation with the annotator about how to approach the annotations.
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <!-- Chat Input -->
+                <div class="flex gap-2">
+                    <input type="text" id="chat-input" 
+                        class="flex-1 px-4 py-2 border rounded focus:ring-2 focus:ring-blue-500"
+                        placeholder="Ask the annotator about his approach, give feedback, or request changes..."
+                        onkeypress="if(event.key==='Enter')sendMessage()">
+                    <button onclick="sendMessage()" id="send-btn" 
+                            class="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                        Send
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Ready to Build -->
+            <div class="bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg shadow p-6 text-white">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h2 class="text-xl font-semibold mb-1">Ready to Annotate?</h2>
+                        <p class="opacity-90">When you're happy with the approach, start the build process.</p>
+                    </div>
+                    <button onclick="markReadyAndBuild()" class="px-6 py-3 bg-white text-green-700 rounded-lg hover:bg-green-50 font-semibold shadow">
+                        🚀 Approve & Build EPUB
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const bookId = {{ book.id }};
+const csrfToken = '{{ csrf_token }}';
+
+// Refresh models from all providers
+async function discoverModels() {
+    try {
+        const response = await fetch('/api/ai/discover-models/');
+        const data = await response.json();
+        
+        const select = document.getElementById('model-select');
+        select.innerHTML = '';
+        
+        data.models.forEach(model => {
+            const option = document.createElement('option');
+            option.value = model.name;
+            option.dataset.provider = model.provider_id;
+            option.textContent = (model.is_qwen ? '⭐ ' : '') + model.name + ' (' + model.provider + ')';
+            if (model.is_qwen) option.className = 'font-semibold';
+            select.appendChild(option);
+        });
+        
+        if (data.errors.length > 0) {
+            alert('Some providers had errors:\n' + data.errors.map(e => e.provider + ': ' + e.error).join('\n'));
+        }
+    } catch (err) {
+        alert('Error discovering models: ' + err.message);
+    }
+}
+
+// Generate annotation approach
+async function generateApproach() {
+    const btn = document.getElementById('approach-btn');
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Generating...';
+    
+    try {
+        const response = await fetch(`/book/${bookId}/annotation/generate-approach/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('approach-content').innerHTML = 
+                '<div class="bg-gray-50 p-4 rounded border">' + 
+                data.approach.replace(/\n/g, '<br>') + 
+                '</div><p class="text-xs text-gray-500 mt-2">Generated using ' + data.model_used + '</p>';
+            
+            // Add to chat display
+            addToChatDisplay('assistant', data.approach);
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (err) {
+        alert('Error: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '🔮 Generate Approach';
+    }
+}
+
+// Generate sample annotation
+async function generateSampleAnnotation() {
+    const btn = document.getElementById('preview-btn');
+    btn.disabled = true;
+    btn.innerHTML = '⏳ Generating...';
+    
+    try {
+        const response = await fetch(`/book/${bookId}/annotation/preview-sample/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('sample-annotation').classList.remove('hidden');
+            document.getElementById('sample-annotation-content').innerHTML = 
+                '<div class="bg-yellow-50 p-4 rounded border border-yellow-200">' +
+                '<p class="text-sm text-gray-600 mb-3"><strong>Sample text:</strong> "' + data.sample_text.substring(0, 100) + '..."</p>' +
+                '<div class="annotation-preview">' + data.annotation.replace(/\n/g, '<br>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>') + '</div>' +
+                '</div><p class="text-xs text-gray-500 mt-2">Model: ' + data.model_used + '</p>';
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (err) {
+        alert('Error: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '✨ Preview Annotation Style';
+    }
+}
+
+// Save instructions
+async function saveInstructions() {
+    const instructions = document.getElementById('custom-instructions').value;
+    const model = document.getElementById('model-select').value;
+    
+    try {
+        const response = await fetch(`/book/${bookId}/annotation/save-instructions/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                instructions: instructions,
+                preferred_model: model
+            })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            // Show brief confirmation
+            const btn = event.target;
+            const original = btn.innerHTML;
+            btn.innerHTML = '✓ Saved!';
+            btn.classList.add('bg-green-600');
+            setTimeout(() => {
+                btn.innerHTML = original;
+                btn.classList.remove('bg-green-600');
+            }, 2000);
+        }
+    } catch (err) {
+        alert('Error saving: ' + err.message);
+    }
+}
+
+// Send chat message
+async function sendMessage() {
+    const input = document.getElementById('chat-input');
+    const message = input.value.trim();
+    if (!message) return;
+    
+    const btn = document.getElementById('send-btn');
+    btn.disabled = true;
+    input.disabled = true;
+    
+    // Add user message to display
+    addToChatDisplay('user', message);
+    input.value = '';
+    
+    try {
+        const response = await fetch(`/book/${bookId}/annotation/chat/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ message: message })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            addToChatDisplay('assistant', data.response);
+        } else {
+            alert('Error: ' + data.error);
+        }
+    } catch (err) {
+        alert('Error: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        input.disabled = false;
+        input.focus();
+    }
+}
+
+// Add message to chat display
+function addToChatDisplay(role, content) {
+    const container = document.getElementById('chat-messages');
+    
+    // Remove "no messages" placeholder if present
+    const placeholder = container.querySelector('.text-gray-400');
+    if (placeholder) placeholder.remove();
+    
+    const div = document.createElement('div');
+    div.className = role === 'user' ? 'text-right' : '';
+    div.innerHTML = `
+        <div class="inline-block max-w-[80%] p-3 rounded-lg ${role === 'user' ? 'bg-blue-600 text-white' : 'bg-white border shadow-sm'}">
+            <div class="text-sm font-medium mb-1">
+                ${role === 'user' ? 'You' : '🤖 Annotator'}
+            </div>
+            <div class="${role === 'assistant' ? 'prose prose-sm' : ''}">
+                ${content.replace(/\n/g, '<br>')}
+            </div>
+        </div>
+    `;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+}
+
+// Clear conversation
+async function clearConversation() {
+    if (!confirm('Clear the conversation history?')) return;
+    
+    try {
+        await fetch(`/book/${bookId}/annotation/clear-conversation/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken }
+        });
+        
+        const container = document.getElementById('chat-messages');
+        container.innerHTML = '<div class="text-gray-400 text-center py-8">Start a conversation with the annotator about how to approach the annotations.</div>';
+    } catch (err) {
+        alert('Error: ' + err.message);
+    }
+}
+
+// Mark ready and start build
+async function markReadyAndBuild() {
+    const instructions = document.getElementById('custom-instructions').value;
+    const model = document.getElementById('model-select').value;
+    
+    // Save instructions first
+    await fetch(`/book/${bookId}/annotation/save-instructions/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            instructions: instructions,
+            preferred_model: model,
+            planning_completed: true
+        })
+    });
+    
+    // Redirect to build
+    window.location.href = `/build/${bookId}/`;
+}
+</script>
+
+<style>
+.annotation-preview strong {
+    color: #b8860b;
+}
+</style>
+{% endblock %}

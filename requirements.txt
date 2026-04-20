@@ -1,0 +1,19 @@
+# Forge Publisher - Root Requirements
+# Install with: pip install -r requirements.txt
+
+# Core pipeline dependencies
+ebooklib
+beautifulsoup4
+requests
+openai
+pyyaml
+pydantic
+python-dotenv
+aiohttp
+Pillow
+
+# Django UI
+django>=5.0
+
+# TTS providers (install as needed)
+edge-tts

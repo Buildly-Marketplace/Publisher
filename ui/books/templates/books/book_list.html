@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Manuscripts | Forge Publisher{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold mb-6">Manuscripts</h1>
+<a href="{% url 'annotation_list' %}" class="mb-4 inline-block text-indigo-600 hover:underline">Edit Annotations</a>
+<div class="bg-white rounded shadow p-6">
+    {% if manuscripts %}
+        <ul class="divide-y divide-gray-200">
+            {% for manuscript in manuscripts %}
+                <li class="py-2 flex items-center justify-between">
+                    <span class="font-mono">{{ manuscript }}</span>
+                    <a href="{% url 'manuscript_detail' manuscript %}" class="text-indigo-600 hover:underline text-sm">View</a>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p class="text-gray-500">No manuscripts found.</p>
+    {% endif %}
+</div>
+{% endblock %}

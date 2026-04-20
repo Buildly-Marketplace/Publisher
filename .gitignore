@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Environment files with secrets
+.env
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Django
+db.sqlite3
+db.sqlite3-journal
+*.log
+
+# Node
+node_modules/
+package-lock.json
+
+# Generated output (rebuild with pipeline)
+pipeline/output/*.epub
+pipeline/output/*.json
+pipeline/output/audiobooks/*
+pipeline/output/logs/*
+pipeline/output/covers/*
+
+# Generated annotations (rebuild with pipeline)
+pipeline/annotations/*.json
+
+# Runtime state
+ops/*.pid
+ops/*.port
+ops/*.log
+
+# Keep directory structure
+!**/.gitkeep

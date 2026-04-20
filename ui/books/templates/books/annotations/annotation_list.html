@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Annotations | Forge Publisher{% endblock %}
+
+{% block content %}
+<h1 class="text-2xl font-bold mb-6">Annotation Files</h1>
+<div class="bg-white rounded shadow p-6">
+    {% if annotation_files %}
+        <ul class="divide-y divide-gray-200">
+            {% for file in annotation_files %}
+                <li class="py-2 flex items-center justify-between">
+                    <span class="font-mono">{{ file }}</span>
+                    <a href="{% url 'annotation_edit' file %}" class="text-indigo-600 hover:underline text-sm">Edit</a>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p class="text-gray-500">No annotation files found.</p>
+    {% endif %}
+</div>
+<a href="/" class="mt-6 inline-block text-indigo-600 hover:underline">&larr; Back to manuscripts</a>
+{% endblock %}

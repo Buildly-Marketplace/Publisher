@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+
+{% block title %}Audio Build Status - {{ book.title }} - Forge Publisher{% endblock %}
+
+{% block content %}
+<div class="container mx-auto max-w-2xl">
+    <div class="mb-6">
+        <a href="{% url 'audiobook_config' book.id %}" class="text-blue-600 hover:underline">← Back to Audio Configuration</a>
+        <h1 class="text-3xl font-bold mt-2">🎙️ Audio Book Build</h1>
+        <p class="text-gray-600">{{ book.title }} by {{ book.author }}</p>
+    </div>
+    
+    <!-- Status Card -->
+    <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="text-xl font-semibold">Build Status</h2>
+            <span id="status-badge" class="px-4 py-2 rounded-full text-white font-semibold
+                {% if build.status == 'success' %}bg-green-500
+                {% elif build.status == 'failed' %}bg-red-500
+                {% elif build.status == 'generating' or build.status == 'combining' or build.status == 'encoding' %}bg-blue-500
+                {% else %}bg-gray-500{% endif %}">
+                {{ build.get_status_display }}
+            </span>
+        </div>
+        
+        <!-- Progress Bar -->
+        <div class="mb-6">
+            <div class="flex justify-between text-sm text-gray-600 mb-2">
+                <span>Progress</span>
+                <span id="progress-text">{{ build.current_section }}/{{ build.total_sections }} sections</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-4">
+                <div id="progress-bar" class="bg-gradient-to-r from-orange-500 to-red-500 h-4 rounded-full transition-all duration-500"
+                     style="width: {{ build.progress_percent }}%"></div>
+            </div>
+            <div id="progress-percent" class="text-right text-sm text-gray-500 mt-1">{{ build.progress_percent }}%</div>
+        </div>
+        
+        <!-- Build Details -->
+        <div class="grid grid-cols-2 gap-4 text-sm">
+            <div class="p-3 bg-gray-50 rounded">
+                <div class="text-gray-500">Started</div>
+                <div class="font-medium">{{ build.started_at|date:"M d, Y H:i" }}</div>
+            </div>
+            <div class="p-3 bg-gray-50 rounded">
+                <div class="text-gray-500">Completed</div>
+                <div id="completed-at" class="font-medium">
+                    {% if build.completed_at %}
+                        {{ build.completed_at|date:"M d, Y H:i" }}
+                    {% else %}
+                        --
+                    {% endif %}
+                </div>
+            </div>
+            <div class="p-3 bg-gray-50 rounded">
+                <div class="text-gray-500">Duration</div>
+                <div id="duration" class="font-medium">{{ build.duration_formatted|default:"--" }}</div>
+            </div>
+            <div class="p-3 bg-gray-50 rounded">
+                <div class="text-gray-500">File Size</div>
+                <div id="file-size" class="font-medium">
+                    {% if build.file_size_mb %}{{ build.file_size_mb }} MB{% else %}--{% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Error Message -->
+        {% if build.error_message %}
+        <div class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <h3 class="font-semibold text-red-700 mb-2">Error</h3>
+            <pre class="text-sm text-red-600 whitespace-pre-wrap">{{ build.error_message }}</pre>
+        </div>
+        {% endif %}
+        
+        <!-- Voice Configuration Used -->
+        <div class="mt-6 p-4 bg-purple-50 rounded-lg">
+            <h3 class="font-semibold text-purple-800 mb-3">🎤 Voice Configuration</h3>
+            <div class="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                    <span class="text-purple-600">TTS Provider:</span>
+                    <span class="font-medium">{{ build.tts_provider.name|default:"Not set" }}</span>
+                </div>
+                <div>
+                    <span class="text-purple-600">Narrator:</span>
+                    <span class="font-medium">{{ build.narrator_voice.name|default:"Default" }}</span>
+                </div>
+                <div>
+                    <span class="text-purple-600">Annotator Voice:</span>
+                    <span class="font-medium">{{ build.annotator_voice.name|default:"Default" }}</span>
+                </div>
+                <div>
+                    <span class="text-purple-600">Annotations:</span>
+                    <span class="font-medium">{% if build.include_annotations %}Included{% else %}Excluded{% endif %}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Action Buttons -->
+    <div class="flex gap-4">
+        {% if build.status == 'success' and build.output_path %}
+        <a href="{% url 'download_audiobook' build.id %}" class="flex-1 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 text-center font-semibold">
+            📥 Download Audio Book
+        </a>
+        {% endif %}
+        
+        <a href="{% url 'audiobook_config' book.id %}" 
+           class="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-center font-semibold">
+            🔄 Build Again
+        </a>
+    </div>
+    
+    <!-- Live Log (for in-progress builds) -->
+    {% if build.status == 'generating' or build.status == 'combining' or build.status == 'encoding' %}
+    <div class="mt-6 bg-gray-900 rounded-lg p-4">
+        <h3 class="text-green-400 font-mono text-sm mb-2">📜 Build Log</h3>
+        <div id="build-log" class="font-mono text-xs text-gray-300 h-48 overflow-y-auto">
+            <div class="text-yellow-400">Starting audio generation...</div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+{% if build.status == 'generating' or build.status == 'combining' or build.status == 'encoding' or build.status == 'pending' %}
+// Poll for status updates
+let pollInterval = setInterval(function() {
+    fetch('{% url "audiobook_status_api" build.id %}')
+        .then(r => r.json())
+        .then(data => {
+            // Update progress bar
+            document.getElementById('progress-bar').style.width = data.progress + '%';
+            document.getElementById('progress-percent').textContent = data.progress + '%';
+            document.getElementById('progress-text').textContent = 
+                data.current_section + '/' + data.total_sections + ' sections';
+            
+            // Update status badge
+            const badge = document.getElementById('status-badge');
+            badge.textContent = data.status.replace('_', ' ').toUpperCase();
+            
+            if (data.status === 'success') {
+                badge.className = 'px-4 py-2 rounded-full text-white font-semibold bg-green-500';
+                clearInterval(pollInterval);
+                location.reload();
+            } else if (data.status === 'failed') {
+                badge.className = 'px-4 py-2 rounded-full text-white font-semibold bg-red-500';
+                clearInterval(pollInterval);
+                location.reload();
+            }
+            
+            // Update duration and file size if available
+            if (data.duration) {
+                document.getElementById('duration').textContent = data.duration;
+            }
+            if (data.file_size_mb) {
+                document.getElementById('file-size').textContent = data.file_size_mb + ' MB';
+            }
+        })
+        .catch(err => console.error('Status poll error:', err));
+}, 2000);
+{% endif %}
+</script>
+{% endblock %}
