@@ -1,0 +1,126 @@
+slug: publisher
+name: Publisher
+version: 1.0.0
+summary: >
+  AI-powered publishing pipeline that transforms plain-text manuscripts into
+  richly styled, annotated EPUB ebooks and audiobooks — with per-character TTS voices.
+description: |
+  Forge Publisher takes a manuscript (plain text) and runs it through an automated pipeline:
+  ingest, AI-powered analysis, annotation generation, and EPUB/audiobook production.
+  Everything is managed through a Django web dashboard with AI provider configuration,
+  build tracking, and annotation planning.
+
+license: BSL-1.1
+repo_url: https://github.com/buildly-marketplace/Publisher
+repo_owner: buildly-marketplace
+repo_name: Publisher
+
+price: "$9.99"
+
+categories:
+  - productivity
+  - developer-tools
+  - ai-tools
+  - content-creation
+
+targets:
+  - docker
+  - python
+
+key_benefits:
+  - "AI annotation pipeline — Ollama (local) or OpenAI for generating literary commentary"
+  - "Interactive EPUB output with popup annotations and custom steampunk-inspired covers"
+  - "Audiobook generation with Edge TTS and Coqui XTTS, per-character voice profiles"
+  - "Django web dashboard for book management, build tracking, and AI provider config"
+  - "Multi-server Ollama with failover across multiple instances"
+
+use_cases:
+  - "Authors turning manuscripts into professionally styled ebooks"
+  - "Publishers automating annotation and commentary generation"
+  - "Developers building AI-enhanced reading experiences"
+  - "Content creators producing audiobooks with character voices"
+
+tech_stack:
+  - Django
+  - Python
+  - Ollama
+  - OpenAI
+  - Edge TTS
+  - Coqui XTTS
+  - Docker
+
+company_sizes:
+  - solo
+  - startup
+  - smb
+
+target_industries:
+  - publishing
+  - content
+  - media
+  - education
+
+ai_workflows:
+  - name: Manuscript Analysis
+    description: >
+      AI analyzes the manuscript for themes, characters, and scientific accuracy
+      before annotation generation begins.
+    models:
+      - Ollama (local)
+      - GPT-4
+  - name: Literary Commentary Generator
+    description: >
+      Generates witty, scholarly section-by-section commentary using a configurable
+      AI persona — from terse academic to eccentric Victorian.
+    models:
+      - Ollama (local)
+      - GPT-4
+  - name: Audiobook Voice Synthesis
+    description: >
+      Assigns per-character TTS voices and generates chapter-by-chapter audio
+      with natural prosody and expression.
+    models:
+      - Edge TTS
+      - Coqui XTTS
+
+buildly_integrations:
+  - service: Buildly Core
+    description: Native integration with Buildly workflow engine for build tracking
+  - service: Ollama
+    description: Local LLM server for private, offline AI annotation
+  - service: OpenAI
+    description: GPT-4 fallback for annotation and analysis when Ollama unavailable
+
+support_plans:
+  - name: Community
+    price: "$0"
+    billing: monthly
+    description: GitHub issues, community forum
+    response_time: best-effort
+    sort_order: 1
+  - name: Standard
+    price: "$29"
+    billing: monthly
+    description: Email support, 48h response SLA
+    response_time: 48h
+    sort_order: 2
+  - name: Priority
+    price: "$99"
+    billing: monthly
+    description: Direct chat support, 8h response SLA
+    response_time: 8h
+    sort_order: 3
+
+hosting_plans:
+  - name: Self-hosted
+    price: "$0"
+    billing: one-time
+    description: Run on your own server or Docker host
+    deployment_target: docker
+    sort_order: 1
+  - name: Managed Cloud
+    price: "$19"
+    billing: monthly
+    description: Hosted on DigitalOcean with automated updates
+    deployment_target: digitalocean
+    sort_order: 2
